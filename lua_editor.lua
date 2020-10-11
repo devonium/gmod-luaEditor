@@ -513,7 +513,7 @@ function PANEL:Init()
     LuaOptions:Dock(LEFT)
     LuaOptions:SetText("LUA")    
     
-    LuaOptions:AddOption("Deyvan's lua Syntax tool",function()
+    LuaOptions:AddOption("Deyvan's lua syntax tool",function()
         local frame = vgui.Create("LUAEDITOR_DFrame")
         frame:SetSize(ScrW() * 0.5 , ScrH() * 0.7)
         frame:Center()
