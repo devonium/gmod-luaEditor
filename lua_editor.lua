@@ -827,11 +827,11 @@ function PANEL:GenerateOptions()
                 end)
             end
 
-            local sniff = vgui.Create("DButton",panel)
-            sniff:Dock(TOP)
-            sniff:SetText("sniff")
-            sniff:DockMargin(5,0,5,10)
-            sniff.DoClick = function()
+            local utils = vgui.Create("DButton",panel)
+            utils:Dock(TOP)
+            utils:SetText("utils")
+            utils:DockMargin(5,0,5,10)
+            utils.DoClick = function()
                 if NETUTILS.HOOK[ netname ] and NETUTILS.HOOK[ netname ][2]
                 then
                     NETUTILS.HOOK[ netname ][1]:Show()
