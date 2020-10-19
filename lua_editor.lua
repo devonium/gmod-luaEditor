@@ -1,8 +1,6 @@
 local CHROMIUM_BRANCH    =  BRANCH == "chromium"
 local LUA_EDITOR_URL     =  CHROMIUM_BRANCH and "https://metastruct.github.io/gmod-monaco/" or "http://metastruct.github.io/lua_editor/"
 
-
-
 local surface       = surface
 local draw          = draw
 local vgui          = vgui
@@ -16,90 +14,132 @@ local pairs         = pairs
 local ipairs        = ipairs
 local CompileString = CompileString
 
-/////////////////////////////////
---  net & net strucure logger  --
-/////////////////////////////////
+
+-- Fixed by Deyvan
+--  For some reason starfall give an error with table copy
+--  not cool yet...
+local function tableCopy( t, lookup_table )
+	if ( t == nil ) then return nil end
+    local copy = {}
+    if lookup_table then setmetatable(copy, debug.getmetatable(t)) end
+    for i, v in pairs( t ) do
+		if ( !istable( v ) ) then
+			copy[ i ] = v
+		else
+			lookup_table = lookup_table or {}
+			lookup_table[ t ] = copy
+			if ( lookup_table[ v ] ) then
+				copy[ i ] = lookup_table[ v ] -- we already copied this table. reuse the copy.
+			else
+				copy[ i ] = tableCopy( v, lookup_table ) -- not yet copied. copy it.
+			end
+		end
+	end
+	return copy
+end
+
+/////////////////
+--  net utils  --
+/////////////////
+
+NET = NET or tableCopy( net )
 
 local function NiceTab(tablen,...)
     local args  = {...}
     local ret = ""
-    local tlen = tablen or 23
+    tablen = tablen or 23
     
     for i=1,#args
     do
-        local curlen  = utf8.len(utf8.force( tostring( args[i] ) ))
-        ret = ret .. args[i] .. string.rep(" ",tlen-curlen) .. ( curlen >= tlen and " " or "" )
+        local len  = utf8.len(utf8.force( tostring( args[i] ) ))
+        ret = ret .. args[i] .. string.rep(" ",tablen-len) .. ( len >= tablen and " " or "" )
     end
 
     return ret
 end
 
-NET = NET or table.Copy( net )
+local NETUTILS   = {}
+NETUTILS.SNIFFIN   = false
+NETUTILS.SNIFFOUT   = false
+NETUTILS.FREEZE   = false
+NETUTILS.HOOK = {}
 
-local NET_LOGGER_STRUCTURES_COUNT = 0
-NET_LOGGER_STRUCTURES = NET_LOGGER_STRUCTURES or {}
+function net.ReadInt(bitCount)  local data = NET.ReadInt(bitCount)  if NETUTILS.SNIFFIN then NETUTILS.LOGOUTPUT:AppendText( NiceTab(23, "int"  .. bitCount .. ":","0x".. bit.tohex(data) , data    ) .. "\n" ) end return data end
+function net.ReadUInt(bitCount) local data = NET.ReadUInt(bitCount) if NETUTILS.SNIFFIN then NETUTILS.LOGOUTPUT:AppendText( NiceTab(23, "Uint" .. bitCount .. ":","0x" .. bit.tohex(data), data    ) .. "\n" ) end return data end
+function net.ReadString()       local data = NET.ReadString()       if NETUTILS.SNIFFIN then NETUTILS.LOGOUTPUT:AppendText( NiceTab(23, "String:","\"".. data .. "\""                              ) .. "\n" ) end return data end
+function net.ReadEntity()       local data = NET.ReadEntity()       if NETUTILS.SNIFFIN then NETUTILS.LOGOUTPUT:AppendText( NiceTab(23, "Entity:", tostring( data )                                ) .. "\n" ) end return data end
+function net.ReadVector()       local data = NET.ReadVector()       if NETUTILS.SNIFFIN then NETUTILS.LOGOUTPUT:AppendText( NiceTab(23, "Vector:", tostring( data )                                ) .. "\n" ) end return data end
+function net.ReadAngle()        local data = NET.ReadAngle()        if NETUTILS.SNIFFIN then NETUTILS.LOGOUTPUT:AppendText( NiceTab(23, "Angle:" , data[1] .. " " .. data[2] .. " " .. data[3]     ) .. "\n" ) end return data end
+function net.ReadTable()        local data = NET.ReadTable()        if NETUTILS.SNIFFIN then NETUTILS.LOGOUTPUT:AppendText( NiceTab(23, "Table:" , table.ToString(data, "",false)                  ) .. "\n" ) end return data end
+function net.ReadColor()        local data = NET.ReadColor()        if NETUTILS.SNIFFIN then NETUTILS.LOGOUTPUT:AppendText( NiceTab(23, "Color:" , tostring( data )                                ) .. "\n" ) end return data end
+function net.ReadFloat()        local data = NET.ReadFloat()        if NETUTILS.SNIFFIN then NETUTILS.LOGOUTPUT:AppendText( NiceTab(23, "Float:" , data                                            ) .. "\n" ) end return data end
+function net.ReadDouble()       local data = NET.ReadDouble()       if NETUTILS.SNIFFIN then NETUTILS.LOGOUTPUT:AppendText( NiceTab(23, "Double:", data                                            ) .. "\n" ) end return data end
+function net.ReadNormal()       local data = NET.ReadNormal()       if NETUTILS.SNIFFIN then NETUTILS.LOGOUTPUT:AppendText( NiceTab(23, "Vector(Normal):",tostring( data )                         ) .. "\n" ) end return data end
+function net.ReadMatrix()       local data = NET.ReadMatrix()       if NETUTILS.SNIFFIN then NETUTILS.LOGOUTPUT:AppendText( NiceTab(23, "Matrix:"        ,tostring( data )                         ) .. "\n" ) end return data end
+function net.ReadData(length)   local data = NET.ReadData(length)   if NETUTILS.SNIFFIN then NETUTILS.LOGOUTPUT:AppendText( NiceTab(23, "Binary Data:","<" .. length .. ">"                        ) .. "\n" ) end return data end
 
-local STRUCTURE_BUFFER = {}
+function net.WriteInt(num,bitCount)  if NETUTILS.FREEZE then return end  NET.WriteInt(num,bitCount)   if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "int"  .. bitCount .. ":","0x"..  bit.tohex(num), num      ) .. "\n" ) end end
+function net.WriteUInt(num,bitCount) if NETUTILS.FREEZE then return end  NET.WriteUInt(num,bitCount)  if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Uint" .. bitCount .. ":","0x" .. bit.tohex(num), num      ) .. "\n" ) end end
+function net.WriteString(string)     if NETUTILS.FREEZE then return end  NET.WriteString(string)      if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "String:","\"".. string .. "\""                            ) .. "\n" ) end end
+function net.WriteEntity(entity)     if NETUTILS.FREEZE then return end  NET.WriteEntity(entity)      if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Entity:", tostring( entity )                              ) .. "\n" ) end end
+function net.WriteVector(vector)     if NETUTILS.FREEZE then return end  NET.WriteVector(vector)      if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Vector:", tostring( vector )                              ) .. "\n" ) end end
+function net.WriteAngle(angle)       if NETUTILS.FREEZE then return end  NET.WriteAngle(angle)        if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Angle:" , angle[1] .. " " .. angle[2] .. " " .. angle[3]  ) .. "\n" ) end end
+function net.WriteTable(table)       if NETUTILS.FREEZE then return end  NET.WriteTable(table)        if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Table:" , table.ToString(table, "",false)                 ) .. "\n" ) end end
+function net.WriteColor(color)       if NETUTILS.FREEZE then return end  NET.WriteColor(color)        if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Color:" , tostring( color )                               ) .. "\n" ) end end
+function net.WriteFloat(float)       if NETUTILS.FREEZE then return end  NET.WriteFloat(float)        if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Float:" , float                                           ) .. "\n" ) end end
+function net.WriteDouble(double)     if NETUTILS.FREEZE then return end  NET.WriteDouble(double)      if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Double:", double                                          ) .. "\n" ) end end
+function net.WriteNormal(normal)     if NETUTILS.FREEZE then return end  NET.WriteNormal(normal)      if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Vector(Normal):",tostring( vector )                       ) .. "\n" ) end end
+function net.WriteMatrix(matrix)     if NETUTILS.FREEZE then return end  NET.WriteMatrix(matrix)      if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Matrix:"        ,tostring( matrix )                       ) .. "\n" ) end end
+function net.WriteData(data,length)  if NETUTILS.FREEZE then return end  NET.WriteData(data,length)   if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Binary Data:","<" .. length .. ">"                        ) .. "\n" ) end end
 
-function net.ReadInt(bitCount)  local data = NET.ReadInt(bitCount) STRUCTURE_BUFFER[ #STRUCTURE_BUFFER + 1 ]  = NiceTab(23, "int"  .. bitCount .. ":", "0x".. bit.tohex(data) , data   )return data end
-function net.ReadUInt(bitCount) local data = NET.ReadUInt(bitCount)STRUCTURE_BUFFER[ #STRUCTURE_BUFFER + 1 ]  = NiceTab(23, "Uint" .. bitCount .. ":","0x" .. bit.tohex(data)  , data  )return data end
-function net.ReadString()       local data = NET.ReadString()      STRUCTURE_BUFFER[ #STRUCTURE_BUFFER + 1 ]  = NiceTab(23, "String:","\"".. data .. "\""                              )return data end
-function net.ReadEntity()       local data = NET.ReadEntity()      STRUCTURE_BUFFER[ #STRUCTURE_BUFFER + 1 ]  = NiceTab(23, "Entity:", tostring( data )                                )return data end
-function net.ReadVector()       local data = NET.ReadVector()      STRUCTURE_BUFFER[ #STRUCTURE_BUFFER + 1 ]  = NiceTab(23, "Vector:", tostring( data )                                )return data end
-function net.ReadAngle()        local data = NET.ReadAngle()       STRUCTURE_BUFFER[ #STRUCTURE_BUFFER + 1 ]  = NiceTab(23, "Table:" , table.ToString( data , "",false )               )return data end
-function net.ReadTable()        local data = NET.ReadTable()       STRUCTURE_BUFFER[ #STRUCTURE_BUFFER + 1 ]  = NiceTab(23, "Angle:" , tostring( data )                                )return data end
-function net.ReadColor()        local data = NET.ReadColor()       STRUCTURE_BUFFER[ #STRUCTURE_BUFFER + 1 ]  = NiceTab(23, "Color:" , tostring( data )                                )return data end
-function net.ReadFloat()        local data = NET.ReadFloat()       STRUCTURE_BUFFER[ #STRUCTURE_BUFFER + 1 ]  = NiceTab(23, "Float:" , data                                            )return data end
-function net.ReadDouble()       local data = NET.ReadDouble()      STRUCTURE_BUFFER[ #STRUCTURE_BUFFER + 1 ]  = NiceTab(23, "Double:", data                                            )return data end
-function net.ReadNormal()       local data = NET.ReadNormal()      STRUCTURE_BUFFER[ #STRUCTURE_BUFFER + 1 ]  = NiceTab(23, "Vector(Normal):",tostring( data )                         )return data end
-function net.ReadMatrix()       local data = NET.ReadMatrix()      STRUCTURE_BUFFER[ #STRUCTURE_BUFFER + 1 ]  = NiceTab(23, "Matrix:"        ,tostring( data )                         )return data end
-function net.ReadData(length)   local data = NET.ReadData(length)  STRUCTURE_BUFFER[ #STRUCTURE_BUFFER + 1 ]  = NiceTab(23, "Binary Data:","<" .. length .. ">"                        )return data end
-
-function net.Incoming( len, client )
-
+function net.Incoming( len )
 	local i = net.ReadHeader()
 	local strName = util.NetworkIDToString( i )
-	
 	if ( !strName ) then return end
-	
 	local func = net.Receivers[ strName:lower() ]
 	if ( !func ) then return end
-
     len = len - 16
     
-    STRUCTURE_BUFFER = {}
-    
-    func( len, client )
+    if NETUTILS.HOOK[ strName ]
+    then
 
-    if NET_LOGGER_STRUCTURES_COUNT > 2048 then NET_LOGGER_STRUCTURES = {} end
+        if NETUTILS.HOOK[ strName ] and NETUTILS.HOOK[ strName ][3] or false then return end
+        
+        NETUTILS.SNIFFIN = NETUTILS.HOOK[ strName ] and NETUTILS.HOOK[ strName ][2] or false
+
+        if NETUTILS.SNIFFIN
+        then
+            NETUTILS.LOGOUTPUT = NETUTILS.HOOK[ strName ][1].netinlog
+            NETUTILS.LOGOUTPUT:AppendText( "\n" ..  strName .. ":In\n" )
+        end
+
+    end
     
-    NET_LOGGER_STRUCTURES[ strName ] = NET_LOGGER_STRUCTURES[ strName ] or {}
-    NET_LOGGER_STRUCTURES[ strName ][ tostring( util.CRC( table.concat(STRUCTURE_BUFFER ,"" )  ) ) ] = STRUCTURE_BUFFER
-    NET_LOGGER_STRUCTURES_COUNT = NET_LOGGER_STRUCTURES_COUNT + #STRUCTURE_BUFFER
+    func( len )
+
 end
 
-/////////////////////////////////////////////////////
--- don't let special characters break the js queue --
-/////////////////////////////////////////////////////
-local replace =
-{
-    ["\n"] = "\\n" ,
-    ["\0"] = "\\0" ,
-    ["\b"] = "\\b" ,
-    ["\t"] = "\\t" ,
-    ["\v"] = "\\v" ,
-    ["\f"] = "\\f" ,
-    ["\r"] = "\\r" ,
-    ["\""] = "\\\"",
-    ["\'"] = "\\\'",
-    ["\\"] = "\\\\",
-}
+function net.Start(messageName, unreliable)
+    local msgName = messageName:lower()
 
-local function SafeJS( js )
-    return js:gsub(".",replace)
+    net.Receivers[ msgName ] = net.Receivers[ msgName ] or msgName
+    if NETUTILS.HOOK[ messageName ]
+    then
+        
+        NETUTILS.FREEZE = NETUTILS.HOOK[ messageName ] and NETUTILS.HOOK[ messageName ][3] or false
+        NETUTILS.SNIFFOUT   = NETUTILS.HOOK[ messageName ] and NETUTILS.HOOK[ messageName ][2] or false
+        
+        if NETUTILS.SNIFFOUT
+        then
+            NETUTILS.LOGOUTPUT2 = NETUTILS.HOOK[ messageName ][1].netoutlog
+            NETUTILS.LOGOUTPUT2:AppendText( "\n" ..  messageName .. ":Out\n" )
+        end
+        if NETUTILS.FREEZE then return end
+
+    end
+    
+    NET.Start(messageName, unreliable)
 end
-
-
 
 local LUA_SESSIONS = {}
 
@@ -127,7 +167,7 @@ local function Compile( code,sessionID )
     local var = CompileString( code,"",false)
     if isstring( var ) then return var end
     --              Maybe better localize it?
-    local NEW_ENV = table.Copy( debug.getfenv( var ) )
+    local NEW_ENV = tableCopy( debug.getfenv( var ) )
 
     for k,v in pairs( _FN_ENV )
     do
@@ -181,6 +221,52 @@ end
 -- LUA EDITOR --
 ////////////////
 
+local LuaSessionUID = 1
+
+local function OpenFunctionSource(fn)
+    local fninfo = debug.getinfo( fn )
+
+    if fninfo.short_src == nil then return end
+
+    local src_path    = string.sub( string.match(fninfo.short_src,"lua/.*lua" ) , 5 )
+    local source = file.Read( src_path ,"LUA")
+    if source == nil then error("") end
+    
+    if LUA_EDITOR_FRAME
+    then
+        LUA_EDITOR_FRAME:Show()
+        LUA_EDITOR_FRAME:AddEditorTab(nil,string.GetFileFromFilename( src_path ))
+        LUA_EDITOR_FRAME:GetActiveEditor():SetCode( source )
+        LUA_EDITOR_FRAME:GetActiveEditor():GotoLine( fninfo.linedefined )
+    else
+        local frame = vgui.Create("LUAEDITOR")
+        frame:GetActiveEditor():SetCode( source )
+        frame:GetActiveEditor():GotoLine( fninfo.linedefined )
+        frame:GetActiveEditorTab().CloseButton:Remove()
+        frame:GetActiveEditorTab():SetText( string.GetFileFromFilename( src_path ) )
+    end
+end
+
+local replace =
+{
+    ["\n"] = "\\n" ,
+    ["\0"] = "\\0" ,
+    ["\b"] = "\\b" ,
+    ["\t"] = "\\t" ,
+    ["\v"] = "\\v" ,
+    ["\f"] = "\\f" ,
+    ["\r"] = "\\r" ,
+    ["\""] = "\\\"",
+    ["\'"] = "\\\'",
+    ["\\"] = "\\\\",
+}
+
+-- don't let special characters break the js queue --
+local function SafeJS( js )
+    return js:gsub(".",replace)
+end
+
+
 local PANEL = {}
 
 function PANEL:UpdateColours( )
@@ -227,34 +313,6 @@ vgui.Register("LUAEDITOR_LoadingPanel", PANEL , "DPanel")
 
 local PANEL = {}
 function PANEL:Init()
-    self.BaseClass.Init(self)
-    self.CloseBt = vgui.Create("LUAEDITOR_Button",self)
-    self.CloseBt:Dock(RIGHT)
-    self.CloseBt:SetText("X")
-    self.CloseBt:SizeToContents()
-    self.CloseBt.DoClick = function() 
-        if #self:GetPropertySheet():GetItems() == 1 then LUA_EDITOR_FRAME:AddEditorTab() end
-        self:GetPropertySheet():CloseTab(self) 
-    end
-
-    self.AnimFrac = 0
-end
-
-function PANEL:PerformLayout(w,h)
-    self:SetTall(22)
-end
-
-function PANEL:Paint(w,h)
-    self.AnimFrac = Lerp(0.1,self.AnimFrac, self:IsActive() and 1 or 0 )
-
-    surface.SetDrawColor(70,70,70,self.AnimFrac * 255)
-    surface.DrawRect(0,0,w,h)  
-end
-
-vgui.Register("LUAEDITOR_DTab", PANEL , "DTab")
-
-local PANEL = {}
-function PANEL:Init()
     self.btnMaxim:SetDisabled(false)
     self.btnMaxim.DoClick = function()
         if self.LastSize
@@ -278,17 +336,102 @@ function PANEL:Paint(w,h)
     surface.DrawRect(0,0,w,h)
 end
 
-vgui.Register("LUAEDITOR_DFrame", PANEL , "DFrame")
+vgui.Register("LUAEDITOR_Frame", PANEL , "DFrame")
 
 local PANEL = {}
 function PANEL:Init()
-    self.Canvas = vgui.Create("DPanel",self)
+    self.BaseClass.Init(self)
+    self.CloseButton = vgui.Create("LUAEDITOR_Button",self)
+    self.CloseButton:Dock(RIGHT)
+    self.CloseButton:SetText("X")
+    self.CloseButton:SizeToContents()
+    self.CloseButton.DoClick = function() 
+        if #self:GetPropertySheet():GetItems() == 1 then LUA_EDITOR_FRAME:AddEditorTab() end
+        self:GetPropertySheet():CloseTab(self,true) 
+    end
+
+    self.AnimFrac = 0
+end
+
+function PANEL:PerformLayout(w,h)
+    self:SetTall(22)
+end
+
+function PANEL:Paint(w,h)
+    self.AnimFrac = Lerp(0.1,self.AnimFrac, self:IsActive() and 1 or 0 )
+
+    surface.SetDrawColor(70,70,70,self.AnimFrac * 255)
+    surface.DrawRect(0,0,w,h)  
+end
+
+vgui.Register("LUAEDITOR_Tab", PANEL , "DTab")
+
+local PANEL = {}
+
+function PANEL:Init()
+    self.tabScroller:SetOverlap(0)
+end
+
+function PANEL:AddSheet( label, panel, material, NoStretchX, NoStretchY, Tooltip )
+    if ( !IsValid( panel ) ) then
+        ErrorNoHalt( "DPropertySheet:AddSheet tried to add invalid panel!" )
+        debug.Trace()
+        return
+    end
+
+    local Sheet = {}
+
+    Sheet.Name = label
+
+    Sheet.Tab = vgui.Create( "LUAEDITOR_Tab", self )
+    Sheet.Tab:SetTooltip( Tooltip )
+    Sheet.Tab:Setup( label .. "   " , self, panel, material )
+
+    Sheet.Panel = panel
+    Sheet.Panel.NoStretchX = NoStretchX
+    Sheet.Panel.NoStretchY = NoStretchY
+    Sheet.Panel:SetPos( self:GetPadding(), 20 + self:GetPadding() )
+    Sheet.Panel:SetVisible( false )
+
+    panel:SetParent( self )
+
+    table.insert( self.Items, Sheet )
+
+    if ( !self:GetActiveTab() ) then
+        self:SetActiveTab( Sheet.Tab )
+        Sheet.Panel:SetVisible( true )
+    end
+
+    self.tabScroller:AddPanel( Sheet.Tab )
+
+    return Sheet
+
+end
+
+function PANEL:Paint()
+end
+
+vgui.Register("LUAEDITOR_PropertySheet", PANEL , "DPropertySheet")
+
+local PANEL = {}
+function PANEL:Init()
+    self.Canvas = vgui.Create("DFrame",self)
 
     self.Canvas:Hide()
-    self.Canvas:SetBackgroundColor( Color( 40,40,40 ) )
 
+    self.Canvas:SetSizable(false)
+    self.Canvas:SetDraggable(false)
+    self.Canvas:SetTitle("")
+    self.Canvas:ShowCloseButton(false)
+    
     self.Canvas:SetTall( 0 )
-    self.Canvas.OnFocusChanged = function(self,gained) if !gained then self:Hide() end end
+    
+    self.Canvas.OnFocusChanged = function(self,gained) if !gained and !vgui.FocusedHasParent( self ) then self:Hide() end end
+    self.Canvas.Paint = function(_,w,h)
+        surface.SetDrawColor(40,40,40)
+        surface.DrawRect(0,0,w,h)
+    end
+    
     self.Offset = 0
 end
 
@@ -300,6 +443,7 @@ function PANEL:DoClick()
     self.Canvas:SetVisible( !self.Canvas:IsVisible() )
     self.Canvas:SetPos( input.GetCursorPos() )
     self.Canvas:MakePopup()
+    self.Canvas:RequestFocus()  
 end
 
 function PANEL:AddOption( name , callback )
@@ -324,94 +468,108 @@ function PANEL:AddOption( name , callback )
     self.Offset = self.Offset + 1
 end
 
-vgui.Register("LUAEDITOR_Options",PANEL,"LUAEDITOR_Button")
+vgui.Register("LUAEDITOR_OptionsMenu",PANEL,"LUAEDITOR_Button")
 
 local PANEL = {}
 
 function PANEL:Init()
-    self:SetSize( ScrW() * 0.7 , ScrH() * 0.7 )
-    self:Center()
+    local VBar = self:GetVBar()
+    VBar.Paint = function() end
+    function VBar.btnGrip:Paint(w, h)
+        draw.RoundedBox(0, 0, 0, w, h, Color(100,100,100))
+    end
+
+    VBar:SetHideButtons(true)
+
+    self.hiddenCanvas = vgui.Create("DPanel",self)
+    self.hiddenCanvas:Hide()
+end
+
+function PANEL:AddSearchBar()
+    self.searchbar = vgui.Create("DTextEntry",self)
+    self.searchbar:SetUpdateOnType(true)
+    self.searchbar:SetPlaceholderText("Search...")
+
+    self.searchbar.OnValueChange = function()
+        local text = self.searchbar:GetValue()
+
+        for _,panel in ipairs( table.Add( self.pnlCanvas:GetChildren() , self.hiddenCanvas:GetChildren() ) )
+        do
+            if panel == self.searchbar then continue end
+            if string.find( panel.filterdata or "" , text )
+            then
+                panel:SetParent( self.pnlCanvas )
+            else
+                panel:SetParent( self.hiddenCanvas )
+            end
+        end
+    end
+end
+
+function PANEL:PerformLayout(w,h)
+    self:PerformLayoutInternal()
+    if self.searchbar then self.searchbar:SetWide(w) end
+end
+
+vgui.Register("LUAEDITOR_ScrollPanel",PANEL,"DScrollPanel")
+
+local PANEL = {}
+
+function PANEL:Init()
+    local w,h =  ScrW() * 0.7 , ScrH() * 0.7
 
     self:SetSizable( true )
     self:MakePopup()
-
     self:SetTitle("")
+    
+    self:SetSize( w,h )
+    self:Center()
+
     
     self.btnClose.DoClick = function() self:Hide() end
 
-    local panel1 = vgui.Create("DPanel")
-    panel1:SetDrawBackground(false)
+    local toppanel = vgui.Create("DPanel")
+    toppanel:SetDrawBackground(false)
 
-    self.EditorTabsSheet = vgui.Create("DPropertySheet",panel1 )
+    self.EditorTabsSheet = vgui.Create("LUAEDITOR_PropertySheet",toppanel )
     
     self.EditorTabsSheet:Dock(FILL)
     self.EditorTabsSheet:DockMargin(0,0,0,-15)
-    self.EditorTabsSheet.tabScroller:SetOverlap(0)
-    self.EditorTabsSheet.Paint = function() end
 
-    function self.EditorTabsSheet:AddSheet( label, panel, material, NoStretchX, NoStretchY, Tooltip )
-        if ( !IsValid( panel ) ) then
-            ErrorNoHalt( "DPropertySheet:AddSheet tried to add invalid panel!" )
-            debug.Trace()
-            return
-        end
+    local bottompanel = vgui.Create("DPanel")
+    bottompanel:SetDrawBackground(false)
     
-        local Sheet = {}
-    
-        Sheet.Name = label
-    
-        Sheet.Tab = vgui.Create( "LUAEDITOR_DTab", self )
-        Sheet.Tab:SetTooltip( Tooltip )
-        Sheet.Tab:Setup( label .. "   " , self, panel, material )
-    
-        Sheet.Panel = panel
-        Sheet.Panel.NoStretchX = NoStretchX
-        Sheet.Panel.NoStretchY = NoStretchY
-        Sheet.Panel:SetPos( self:GetPadding(), 20 + self:GetPadding() )
-        Sheet.Panel:SetVisible( false )
-    
-        panel:SetParent( self )
-    
-        table.insert( self.Items, Sheet )
-    
-        if ( !self:GetActiveTab() ) then
-            self:SetActiveTab( Sheet.Tab )
-            Sheet.Panel:SetVisible( true )
-        end
-    
-        self.tabScroller:AddPanel( Sheet.Tab )
-    
-        return Sheet
-    
-    end
-
-    local panel2 = vgui.Create("DPanel")
-    panel2:SetDrawBackground(false)
-    
-    self.Console = vgui.Create("RichText",panel2)
+    self.Console = vgui.Create("RichText",bottompanel)
     self.Console:Dock(FILL)
     self.Console:DockMargin(6,0,8,3)
-    self.Console.Paint = function( _,w,h )
-        surface.SetDrawColor(12, 125, 157)
+    self.Console.Paint = function(_,w,h)
+        surface.SetDrawColor(12 , 125 , 157)
         surface.DrawRect(0,0,w,2)
     end
-
     local divider = vgui.Create("DVerticalDivider",self)
     
     divider:Dock(FILL)
     divider:DockMargin(-13,1,-13,0)
     
-    divider:SetTop( panel1 )
-    divider:SetBottom( panel2 )
+    divider:SetTop( toppanel )
+    divider:SetBottom( bottompanel )
+
     divider:SetDividerHeight( 4 )
-    divider:SetTopHeight( self:GetTall() - 200 )
+    divider:SetTopHeight( h - 200 )
+
+    
+    self:AddEditorTab()
+end
+
+    
+function PANEL:GenerateOptions()
 
     local optionsHolder = vgui.Create("DPanel",self)
     optionsHolder:Dock(TOP)
-    optionsHolder:DockMargin(-5,-20,100,-1)
+    optionsHolder:DockMargin(-5,-10,100,-1)
     optionsHolder:SetDrawBackground(false)
 
-    local FileOptions = vgui.Create("LUAEDITOR_Options",optionsHolder)
+    local FileOptions = vgui.Create("LUAEDITOR_OptionsMenu",optionsHolder)
     FileOptions:Dock(LEFT)
     FileOptions:SetText("File")
     FileOptions:AddOption("New File",function() 
@@ -420,7 +578,7 @@ function PANEL:Init()
     end)
 
     FileOptions:AddOption("Save As",function()
-        local frame = vgui.Create("LUAEDITOR_DFrame")
+        local frame = vgui.Create("LUAEDITOR_Frame")
         frame:SetSize(ScrW() * 0.2 , ScrH() * 0.2)
         frame:Center()
         frame:SetTitle("")
@@ -434,14 +592,16 @@ function PANEL:Init()
         then
             te:SetText( string.GetFileFromFilename( string.Replace( self:GetActiveEditorTab():GetText() ," " , "") ) )
         end
+
         local lbl = vgui.Create("DLabel",frame)
         lbl:Dock(TOP)
         lbl:SetText("<foldername>/<filename> to save into folder")
-        local bt = vgui.Create("LUAEDITOR_Button",frame)
-        bt:Dock(BOTTOM)
-        bt:SetText("Save")
 
-        bt.DoClick = function()  
+        local button = vgui.Create("LUAEDITOR_Button",frame)
+        button:Dock(BOTTOM)
+        button:SetText("Save")
+
+        button.DoClick = function()  
             local path = te:GetText() .. "  "
             local panel = self:GetActiveEditorTab():GetPanel()
             
@@ -462,7 +622,7 @@ function PANEL:Init()
     end)
     FileOptions:AddOption("Open File",function() 
         
-        local frame = vgui.Create("LUAEDITOR_DFrame")
+        local frame = vgui.Create("LUAEDITOR_Frame")
         frame:SetSize(ScrW() * 0.5 , ScrH() * 0.5)
         frame:Center()
         frame:SetTitle("")
@@ -477,7 +637,7 @@ function PANEL:Init()
         browser:SetSearch( "*" )
         browser:SetFileTypes("*.txt")
         browser.OnSelect = function( _,path, pnl )
-            self:AddEditorTab( file.Read(path, "GAME"), string.GetFileFromFilename( path ) )
+            self:AddEditorTab( function( html ) html:SetCode( file.Read(path, "GAME") ) end, string.GetFileFromFilename( path ) )
             local panel = self:GetActiveEditorTab():GetPanel()
             panel.SaveTo =  string.Replace(path,"data/","")
             frame:Close()
@@ -485,7 +645,7 @@ function PANEL:Init()
     end)
 
     FileOptions:AddOption("Load code from url",function() 
-        local frame = vgui.Create("LUAEDITOR_DFrame")
+        local frame = vgui.Create("LUAEDITOR_Frame")
         frame:SetSize(ScrW() * 0.2 , ScrH() * 0.1)
         frame:Center()
         frame:SetTitle("")
@@ -509,17 +669,20 @@ function PANEL:Init()
 
     end)
 
-    local LuaOptions = vgui.Create("LUAEDITOR_Options",optionsHolder)
+    local LuaOptions = vgui.Create("LUAEDITOR_OptionsMenu",optionsHolder)
     LuaOptions:Dock(LEFT)
     LuaOptions:SetText("LUA")    
     
     LuaOptions:AddOption("Deyvan's lua syntax tool",function()
-        local frame = vgui.Create("LUAEDITOR_DFrame")
+        if !CHROMIUM_BRANCH then return Derma_Query("This only works on chromium branch!","Lua editor","Ok") end
+
+        local frame = vgui.Create("LUAEDITOR_Frame")
         frame:SetSize(ScrW() * 0.5 , ScrH() * 0.7)
         frame:Center()
         frame:SetTitle("")
         frame:MakePopup()
         frame:SetSizable(true)
+
         local HTML = vgui.Create("DHTML",frame)
         HTML:Dock(FILL)
         HTML:DockMargin(-13,-9,-13,0)
@@ -534,31 +697,33 @@ function PANEL:Init()
     end)    
 
     LuaOptions:AddOption("Gmod wiki",function()
-        local frame = vgui.Create("LUAEDITOR_DFrame")
-            frame:SetSize(ScrW() * 0.5 , ScrH() * 0.7)
-            frame:Center()
-            frame:SetTitle("")
-            frame:MakePopup()
-            frame:SetSizable(true)
-            local HTML = vgui.Create("DHTML",frame)
-            HTML:Dock(FILL)
-            HTML:DockMargin(0,-5,0,0)
-            HTML:OpenURL("https://wiki.facepunch.com/gmod/")
-            local loadingpanel = vgui.Create("LUAEDITOR_LoadingPanel",frame)
-            loadingpanel:Dock(FILL)
-            function HTML:OnDocumentReady() 
-                loadingpanel:AlphaTo(0,0.2,0,function() loadingpanel:Remove()  HTML:RequestFocus() end)
-            end
+        if !CHROMIUM_BRANCH then return Derma_Query("This only works on chromium branch!","Lua editor","Ok") end
+
+        local frame = vgui.Create("LUAEDITOR_Frame")
+        frame:SetSize(ScrW() * 0.5 , ScrH() * 0.7)
+        frame:Center()
+        frame:SetTitle("")
+        frame:MakePopup()
+        frame:SetSizable(true)
+        local HTML = vgui.Create("DHTML",frame)
+        HTML:Dock(FILL)
+        HTML:DockMargin(0,-5,0,0)
+        HTML:OpenURL("https://wiki.facepunch.com/gmod/")
+        local loadingpanel = vgui.Create("LUAEDITOR_LoadingPanel",frame)
+        loadingpanel:Dock(FILL)
+        function HTML:OnDocumentReady() 
+            loadingpanel:AlphaTo(0,0.2,0,function() loadingpanel:Remove()  HTML:RequestFocus() end)
+        end
     end)
 
     LuaOptions:AddOption("Lua Sessions",function()
-        local frame = vgui.Create("LUAEDITOR_DFrame")
+        local frame = vgui.Create("LUAEDITOR_Frame")
         frame:SetSize(ScrW() * 0.5 , ScrH() * 0.5)
         frame:Center()
         frame:SetTitle("")
         frame:MakePopup()
 
-        local scroll = vgui.Create("DScrollPanel",frame)
+        local scroll = vgui.Create("LUAEDITOR_ScrollPanel",frame)
         scroll:Dock(FILL)
         local function generate()
             scroll:Clear()
@@ -568,7 +733,7 @@ function PANEL:Init()
                 cat:Dock(TOP)
                 cat:SetTall(150)
                 cat:SetLabel( UID )
-                local scroll = vgui.Create("DScrollPanel",cat)
+                local scroll = vgui.Create("LUAEDITOR_ScrollPanel",cat)
                 scroll:Dock(FILL)
 
                 for eventname,data in pairs( Session.hooks or {} )
@@ -622,131 +787,166 @@ function PANEL:Init()
         refreshBt.DoClick = generate
     end) 
 
-    LuaOptions:AddOption("net logger",function()
-        local frame = vgui.Create("LUAEDITOR_DFrame")
-        NET_LOGGER_FRAME = frame
-        frame:SetSize(ScrW() * 0.5 , ScrH() * 0.7)
+    LuaOptions:AddOption("net",function()
+        local frame = vgui.Create("LUAEDITOR_Frame")
+        frame:SetSize(ScrW() * 0.6 , ScrH() * 0.7)
         frame:Center()
         frame:SetTitle("")
         frame:MakePopup()
         frame:SetSizable(true)
 
-        local netrecievers = vgui.Create("DScrollPanel",frame)
-        netrecievers:Dock(LEFT)
-        
-        for k,v in pairs( net.Receivers )
+        local netlist = vgui.Create("LUAEDITOR_ScrollPanel",frame)
+        netlist:Dock(FILL)
+        netlist:AddSearchBar()
+
+        for netname,fn in SortedPairs( net.Receivers,true )
         do
-            local label = vgui.Create("DTextEntry",netrecievers)
+            local panel = vgui.Create("DPanel",netlist)
+            panel:SetDrawBackground(false)
+            panel:Dock(TOP)
+            panel:DockMargin(0,30,0,0)
+
+            panel.filterdata = netname
+
+            local label = vgui.Create("DTextEntry",panel)
             label:Dock(TOP)
-            label:DockMargin(5,0,0,0)
-            label:SetText(k)
-        end
+            label:DockMargin(5,0,5,0)
+            label:SetText(netname)
 
-        frame.netStructures = vgui.Create("DScrollPanel",frame)
-        frame.netStructures:Dock(RIGHT)
+            local open = vgui.Create("DButton",panel)
+            open:Dock(TOP)
+            open:SetText("open source")
+            open:DockMargin(5,0,5,0)
 
-        local function generate()
-            frame.netStructures:Clear()
+            open.DoClick = function()
+                xpcall(function()
+                    OpenFunctionSource(fn)
+                end,function()
+                     Derma_Query("Can't open the file","Lua editor","Ok")
+                     open:SetDisabled(true) 
+                end)
+            end
 
-            local refreshButton = vgui.Create("LUAEDITOR_Button",frame.netStructures)
-            refreshButton:Dock(TOP)
-            refreshButton:DockMargin(-50,0,-50,10)
-            refreshButton:SetText("Refresh")
-            refreshButton.DoClick = generate
-
-            local clearButton = vgui.Create("LUAEDITOR_Button",frame.netStructures)
-            clearButton:Dock(TOP)
-            clearButton:DockMargin(-50,0,-50,10)
-            clearButton:SetText("Clear")
-            clearButton.DoClick = function() NET_LOGGER_STRUCTURES = {} generate() end
-
-            for k,v in pairs( NET_LOGGER_STRUCTURES )
-            do
-         
-                local scroll = frame.netStructures[k]
-                
-                if !cat
+            local sniff = vgui.Create("DButton",panel)
+            sniff:Dock(TOP)
+            sniff:SetText("sniff")
+            sniff:DockMargin(5,0,5,10)
+            sniff.DoClick = function()
+                if NETUTILS.HOOK[ netname ] and NETUTILS.HOOK[ netname ][2]
                 then
-                    local lframe = vgui.Create("DFrame",frame.netStructures)
-                    lframe:Dock(TOP)
-                    lframe:SetTall(150)
-                    lframe:SetTitle( k )
-                    lframe:SetSizable(true)
+                    NETUTILS.HOOK[ netname ][1]:Show()
+                    NETUTILS.HOOK[ netname ][1]:MakePopup()
+                else
+                    local frame = vgui.Create("LUAEDITOR_Frame")
 
-                    local unpin = vgui.Create("DButton",lframe)
-                    unpin:SetPos( 0,20 )
-                    unpin:SetText("x")
-                    unpin:SizeToContents()
-                    unpin.DoClick = function(_,val) 
-                                            lframe:SetParent(nil) 
-                                            lframe:Dock(0)
-                                            lframe:MakePopup()
-                                            unpin:Remove()
-                    end
-                    
-                    scroll = vgui.Create("DScrollPanel",lframe)
-                    scroll:Dock(FILL)
+                    frame:SetTitle("")
+                    frame:Center()
+                    frame:MakePopup()
+                    frame:SetSizable(true)
 
-                    frame.netStructures[k] = scroll
-                    
-                end
-                for k,v in pairs( v )
-                do
-                    local line = nil
-                    for k,v in pairs( v )
-                    do
-                        line = vgui.Create("DTextEntry",scroll)
-                        line:Dock(TOP)
-                        line:DockMargin(5,1,5,0)
-                        line:SetText( v )
+                    frame:SetSize(ScrW() * 0.4,ScrH() *0.6)
+                    frame.btnClose.DoClick = function() frame:Hide() end
+ 
+                    local enabled = vgui.Create("DCheckBoxLabel",frame)
+                    enabled:SetPos(10,10)
+                    enabled:SetText("Sniff " .. netname )
+                    enabled:SetValue(true)
+
+                    enabled.OnChange = function(_,val) 
+                        NETUTILS.HOOK[ netname ][2] = val
                     end
-                    if line then line:DockMargin(5,1,5,15) end
+
+                    local freeze = vgui.Create("DCheckBoxLabel",frame)
+                    freeze:SetPos(10,30)
+                    freeze:SetText("Freeze sending/receiving " .. netname )
+
+                    freeze.OnChange = function(_,val) 
+                        NETUTILS.HOOK[ netname ][3] = val
+                    end
+
+                    frame.netinlog = vgui.Create("RichText",frame)
+                    frame.netinlog:Dock(LEFT)  
+                    frame.netinlog:DockMargin(0,20,0,0)
+                    
+                    frame.netoutlog = vgui.Create("RichText",frame)
+                    frame.netoutlog:Dock(RIGHT)
+                    frame.netoutlog:DockMargin(0,20,0,0)
+
+                    local _PerformLayout = frame.PerformLayout
+                    function frame:PerformLayout(w,h)
+                        _PerformLayout(self,w,h)
+                        frame.netinlog:SetWide( w/2 - 10 )
+                        frame.netoutlog:SetWide( w/2 - 10 )
+                    end
+
+                    NETUTILS.HOOK[ netname ]    = {} 
+                    NETUTILS.HOOK[ netname ][1] = frame
+                    NETUTILS.HOOK[ netname ][2] = true
+                    NETUTILS.HOOK[ netname ][3] = false
                 end
             end
 
-        end
-        generate()
+            panel:SetTall(70)
 
-        
-        local _PerformLayout = frame.PerformLayout
-        function frame:PerformLayout(w,h)
-            _PerformLayout(self,w,h)
-            netrecievers:SetWide( w / 2 - 10 )
-            frame.netStructures:SetWide( w / 2 - 10 )
         end
     end)
 
-    LuaOptions:AddOption("hook finder",function()
-        local frame = vgui.Create("LUAEDITOR_DFrame")
-        NET_LOGGER_FRAME = frame
+    LuaOptions:AddOption("hook",function()
+        local frame = vgui.Create("LUAEDITOR_Frame")
+
         frame:SetSize(ScrW() * 0.5 , ScrH() * 0.7)
         frame:Center()
         frame:SetTitle("")
         frame:MakePopup()
         frame:SetSizable(true)
 
-        local scroll = vgui.Create("DScrollPanel",frame)
+        local scroll = vgui.Create("LUAEDITOR_ScrollPanel",frame)
         scroll:Dock(FILL)
-        
+        scroll:AddSearchBar()
+
         local hooks = hook.GetTable()
         for eventname,tbl in pairs(hooks)
         do
             for id,fn in pairs(tbl)
             do
                 local fninfo = debug.getinfo(fn) 
-                local label = vgui.Create("DTextEntry",scroll)
+
+                local panel = vgui.Create("DPanel",scroll)
+                panel:SetDrawBackground(false)
+                panel:Dock(TOP)
+                panel:DockMargin(0,30,0,0)
+                
+                panel.filterdata = eventname .. " " .. tostring( id )
+                
+                local label = vgui.Create("DTextEntry",panel)
                 label:Dock(TOP)
                 label:DockMargin(5,0,5,0)
-                label:SetText( NiceTab(46,eventname , tostring( id ) , "Source :" .. fninfo.short_src .. ":" .. fninfo.linedefined   ) )
-                local terminate = vgui.Create("DButton",scroll)
+                label:SetText( eventname .. " " .. tostring( id ) )
+
+                local open = vgui.Create("DButton",panel)
+                open:Dock(TOP)
+                open:SetText("open source")
+                open:DockMargin(5,0,5,0)
+    
+                open.DoClick = function()
+                    xpcall(function()
+                        OpenFunctionSource(fn)
+                    end,function()
+                         Derma_Query("Can't open the file","Lua editor","Ok")
+                         open:SetDisabled(true) 
+                    end)
+                end
+
+                local terminate = vgui.Create("DButton",panel)
                 terminate:Dock(TOP)
                 terminate:DockMargin(5,0,5,20)
                 terminate:SetText("Terminate hook")
                 terminate.DoClick = function() hook.Remove( eventname,id ) label:Remove() terminate:Remove() end
+
+                panel:SetTall(70)
             end
         end
     end)
-    self.LuaSessionUID = 1
 
     -- I really don't know why i added this but why not
     local Rextester = vgui.Create("LUAEDITOR_Button",optionsHolder)
@@ -754,7 +954,7 @@ function PANEL:Init()
     Rextester:SetText("rextester")
 
     Rextester.DoClick = function()
-        local frame = vgui.Create("LUAEDITOR_DFrame")
+        local frame = vgui.Create("LUAEDITOR_Frame")
         frame:SetSize(ScrW() * 0.5 , ScrH() * 0.7)
         frame:Center()
         frame:SetTitle("")
@@ -772,7 +972,7 @@ function PANEL:Init()
         end
     end
 
-    local ColorPicker = vgui.Create("LUAEDITOR_Options",optionsHolder)
+    local ColorPicker = vgui.Create("LUAEDITOR_OptionsMenu",optionsHolder)
     ColorPicker:Dock(LEFT)
     ColorPicker:SetText("Color Picker")
     local colormixer = vgui.Create("DColorMixer",ColorPicker.Canvas)
@@ -785,7 +985,6 @@ function PANEL:Init()
     copybutton.DoClick = function() local color = colormixer:GetColor()  SetClipboardText( string.format("%s,%s,%s", color.r,color.g,color.b .. ( color.a != 255 and "," .. color.a or "" ) ) ) end
     ColorPicker.Canvas:SetSize( ScrW() * 0.2 , ScrH() * 0.2 )
 
-    self:AddEditorTab()
 end
 
 function PANEL:GetActiveEditorTab()
@@ -804,104 +1003,105 @@ function PANEL:Compile()
         if line and err
         then
             panel.HTML:SetError( line , err )
-            panel.HTML:GotoLine( line)
+            panel.HTML:GotoLine( line )
         end
         LUA_EDITOR_PRINT( var ) 
     end
 end
 
-function PANEL:AddEditorTab(Code,UID)
-
+function PANEL:AddEditorTab(OnReadyCallback,UID)
     local panel = vgui.Create("DPanel")
     panel:SetDrawBackground(false)
     panel:Dock(FILL)
     panel:DockMargin(0,0,0,0)
 
+    local ErrorIndicator = vgui.Create("LUAEDITOR_Button",panel)
+    ErrorIndicator:Dock(TOP)
+    ErrorIndicator.DoClick = function()
+        if ErrorIndicator.errLine == nil then return end
+        panel.HTML:GotoLine( ErrorIndicator.errLine )
+    end
+
+    
     local HTML = vgui.Create("DHTML",panel)
     panel.HTML = HTML
     
-    panel.UID = UID or ( "Lua session #" .. self.LuaSessionUID )
-    if !UID then self.LuaSessionUID = self.LuaSessionUID + 1 end
+    panel.UID = UID or ( "Lua session #" .. LuaSessionUID )
+    if !UID then LuaSessionUID = LuaSessionUID + 1 end
 
     HTML:Dock(FILL)
+    HTML:DockMargin(0,0,10,15)
     HTML:SetAlpha(0)
 
     HTML:AddFunction("gmodinterface","OnCode", function(Code)
         HTML.Code = Code
+
+        if Code != "" then
+            local var = Compile( Code )
+            if isstring( var ) 
+            then 
+                local line,err = string.match(var,":(%d*):(.+)")
+                HTML:SetError( line , err )
+                return
+            end
+        end
+        HTML:ClearError()
     end)         
     
     function HTML:GetCode()
         return self.Code or ""
     end
-    -- TODO:
-    -- Write own errors list
-    function HTML:SetError( line , error )
-        if !CHROMIUM_BRANCH then self:QueueJavascript("SetErr('" .. line .. "','" .. SafeJS(error).. "')") end
-    end
-    
-    function HTML:ClearErrors()
-        if !CHROMIUM_BRANCH then self:QueueJavascript("ClearErr()") end
-    end
 
     function HTML:GotoLine(num)
-        self:QueueJavascript("GotoLine('" .. num .. "')")
+        self:QueueJavascript( ( CHROMIUM_BRANCH and "gmodinterface." or "" ) .. "GotoLine(" .. num .. ")")
     end
 
     function HTML:SetCode( Code )
-        if CHROMIUM_BRANCH then self:QueueJavascript("gmodinterface.SetCode('" ..  SafeJS( Code ) .. "');") else self:QueueJavascript("SetContent('" ..  SafeJS( Code ) .. "');") end
+        self:QueueJavascript( CHROMIUM_BRANCH  and "gmodinterface.SetCode('" ..  SafeJS( Code ) .. "');" or "SetContent('" ..  SafeJS( Code ) .. "');" ) 
+    end    
+    
+    function HTML:SetError( line ,err )
+        ErrorIndicator:SetMouseInputEnabled(true)
+        ErrorIndicator:SetText( err .. " :" .. line )
+        ErrorIndicator.errLine = line
     end
+    
+    function HTML:ClearError()
+        ErrorIndicator:SetText("")
+        ErrorIndicator.errLine = nil
+        ErrorIndicator:SetMouseInputEnabled(false)
+    end
+
+    HTML:ClearError()
 
     local loadingpanel = vgui.Create("LUAEDITOR_LoadingPanel",panel)
     loadingpanel:Dock(FILL)
 
+    HTML:QueueJavascript("document.documentElement.style.overflow-y = 'hidden';")
     HTML:AddFunction("gmodinterface","OnThemesLoaded", function()end)    
     HTML:AddFunction("gmodinterface","OnLanguages", function()end)
 
     HTML:AddFunction("gmodinterface","OnReady", function()
-        if Code then HTML:SetCode(Code) end
-        -- force you to look at fucking animation (͡° ͜ʖ ͡°)
-        timer.Simple(1,function()
-            if !HTML then return end
+        if OnReadyCallback then OnReadyCallback(HTML) end
 
-            xpcall(function()
+        xpcall(function()
 
-                    HTML:SetAlpha(255)
-                    loadingpanel:AlphaTo(0,0.2,0,function() 
+                HTML:SetAlpha(255)
+                loadingpanel:AlphaTo(0,0.2,0,function() 
 
                     loadingpanel:Remove() 
                     HTML:RequestFocus()
-
-                    local _Think = HTML.Think
-                    HTML.ValidateDelay = 0
-                    function HTML:Think()
-                        _Think(self)
-                        if self.ValidateDelay < CurTime()
-                        then
-                            self:ClearErrors()
-                            if self:GetCode() != "" 
-                            then 
-                                local var = Compile( self:GetCode() )
-                                if isstring( var ) 
-                                then 
-                                    local line,err = string.match(var,":(%d*):(.+)")
-                                    self:SetError( line , err )
-                                end
-                            end
-
-                            self.ValidateDelay = CurTime() + 0.5
-                        end
-                    end
-
                 end)
-            end,function() end)
-        end)
+
+        end,function() end)
+
     end)
+
 
     HTML:OpenURL( LUA_EDITOR_URL )
 
     local sheet = self.EditorTabsSheet:AddSheet( panel.UID  ,panel)
     self.EditorTabsSheet:SetActiveTab( sheet["Tab"] )
-
 end
 
 function PANEL:Paint(w,h)
@@ -911,7 +1111,7 @@ end
 
 function PANEL:Think()
     self.BaseClass.Think(self)
-    if input.IsKeyDown( KEY_LCONTROL ) and  input.IsKeyDown( KEY_S )
+    if input.IsKeyDown( KEY_LCONTROL ) and input.IsKeyDown( KEY_S )
     then
         if self.KeyToggled then return end
         self.KeyToggled = true
@@ -925,9 +1125,10 @@ function PANEL:Think()
     end
 end
 
-vgui.Register("LUAEDITOR_Frame",PANEL,"LUAEDITOR_DFrame")
+vgui.Register("LUAEDITOR",PANEL,"LUAEDITOR_Frame")
 
 concommand.Add("lua_editor",function()
-    if LUA_EDITOR_FRAME then  LUA_EDITOR_FRAME:Remove() end
-    LUA_EDITOR_FRAME = vgui.Create("LUAEDITOR_Frame")
+    if LUA_EDITOR_FRAME then return LUA_EDITOR_FRAME:Show() end
+    LUA_EDITOR_FRAME = vgui.Create("LUAEDITOR")
+    LUA_EDITOR_FRAME:GenerateOptions()
 end)
