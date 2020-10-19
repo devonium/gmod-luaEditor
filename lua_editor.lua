@@ -38,6 +38,109 @@ local function tableCopy( t, lookup_table )
 	return copy
 end
 
+/////////////////
+--  net utils  --
+/////////////////
+
+NET = NET or tableCopy( net )
+
+local function NiceTab(tablen,...)
+    local args  = {...}
+    local ret = ""
+    tablen = tablen or 23
+    
+    for i=1,#args
+    do
+        local len  = utf8.len(utf8.force( tostring( args[i] ) ))
+        ret = ret .. args[i] .. string.rep(" ",tablen-len) .. ( len >= tablen and " " or "" )
+    end
+
+    return ret
+end
+
+local NETUTILS   = {}
+NETUTILS.SNIFFIN   = false
+NETUTILS.SNIFFOUT   = false
+NETUTILS.FREEZE   = false
+NETUTILS.HOOK = {}
+
+function net.ReadInt(bitCount)  local data = NET.ReadInt(bitCount)  if NETUTILS.SNIFFIN then NETUTILS.LOGOUTPUT:AppendText( NiceTab(23, "int"  .. bitCount .. ":","0x".. bit.tohex(data) , data    ) .. "\n" ) end return data end
+function net.ReadUInt(bitCount) local data = NET.ReadUInt(bitCount) if NETUTILS.SNIFFIN then NETUTILS.LOGOUTPUT:AppendText( NiceTab(23, "Uint" .. bitCount .. ":","0x" .. bit.tohex(data), data    ) .. "\n" ) end return data end
+function net.ReadString()       local data = NET.ReadString()       if NETUTILS.SNIFFIN then NETUTILS.LOGOUTPUT:AppendText( NiceTab(23, "String:","\"".. data .. "\""                              ) .. "\n" ) end return data end
+function net.ReadEntity()       local data = NET.ReadEntity()       if NETUTILS.SNIFFIN then NETUTILS.LOGOUTPUT:AppendText( NiceTab(23, "Entity:", tostring( data )                                ) .. "\n" ) end return data end
+function net.ReadVector()       local data = NET.ReadVector()       if NETUTILS.SNIFFIN then NETUTILS.LOGOUTPUT:AppendText( NiceTab(23, "Vector:", tostring( data )                                ) .. "\n" ) end return data end
+function net.ReadAngle()        local data = NET.ReadAngle()        if NETUTILS.SNIFFIN then NETUTILS.LOGOUTPUT:AppendText( NiceTab(23, "Angle:" , data[1] .. " " .. data[2] .. " " .. data[3]     ) .. "\n" ) end return data end
+function net.ReadTable()        local data = NET.ReadTable()        if NETUTILS.SNIFFIN then NETUTILS.LOGOUTPUT:AppendText( NiceTab(23, "Table:" , table.ToString(data, "",false)                  ) .. "\n" ) end return data end
+function net.ReadColor()        local data = NET.ReadColor()        if NETUTILS.SNIFFIN then NETUTILS.LOGOUTPUT:AppendText( NiceTab(23, "Color:" , tostring( data )                                ) .. "\n" ) end return data end
+function net.ReadFloat()        local data = NET.ReadFloat()        if NETUTILS.SNIFFIN then NETUTILS.LOGOUTPUT:AppendText( NiceTab(23, "Float:" , data                                            ) .. "\n" ) end return data end
+function net.ReadDouble()       local data = NET.ReadDouble()       if NETUTILS.SNIFFIN then NETUTILS.LOGOUTPUT:AppendText( NiceTab(23, "Double:", data                                            ) .. "\n" ) end return data end
+function net.ReadNormal()       local data = NET.ReadNormal()       if NETUTILS.SNIFFIN then NETUTILS.LOGOUTPUT:AppendText( NiceTab(23, "Vector(Normal):",tostring( data )                         ) .. "\n" ) end return data end
+function net.ReadMatrix()       local data = NET.ReadMatrix()       if NETUTILS.SNIFFIN then NETUTILS.LOGOUTPUT:AppendText( NiceTab(23, "Matrix:"        ,tostring( data )                         ) .. "\n" ) end return data end
+function net.ReadData(length)   local data = NET.ReadData(length)   if NETUTILS.SNIFFIN then NETUTILS.LOGOUTPUT:AppendText( NiceTab(23, "Binary Data:","<" .. length .. ">"                        ) .. "\n" ) end return data end
+
+function net.WriteInt(num,bitCount)  if NETUTILS.FREEZE then return end  NET.WriteInt(num,bitCount)   if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "int"  .. bitCount .. ":","0x"..  bit.tohex(num), num      ) .. "\n" ) end end
+function net.WriteUInt(num,bitCount) if NETUTILS.FREEZE then return end  NET.WriteUInt(num,bitCount)  if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Uint" .. bitCount .. ":","0x" .. bit.tohex(num), num      ) .. "\n" ) end end
+function net.WriteString(string)     if NETUTILS.FREEZE then return end  NET.WriteString(string)      if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "String:","\"".. string .. "\""                            ) .. "\n" ) end end
+function net.WriteEntity(entity)     if NETUTILS.FREEZE then return end  NET.WriteEntity(entity)      if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Entity:", tostring( entity )                              ) .. "\n" ) end end
+function net.WriteVector(vector)     if NETUTILS.FREEZE then return end  NET.WriteVector(vector)      if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Vector:", tostring( vector )                              ) .. "\n" ) end end
+function net.WriteAngle(angle)       if NETUTILS.FREEZE then return end  NET.WriteAngle(angle)        if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Angle:" , angle[1] .. " " .. angle[2] .. " " .. angle[3]  ) .. "\n" ) end end
+function net.WriteTable(table)       if NETUTILS.FREEZE then return end  NET.WriteTable(table)        if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Table:" , table.ToString(table, "",false)                 ) .. "\n" ) end end
+function net.WriteColor(color)       if NETUTILS.FREEZE then return end  NET.WriteColor(color)        if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Color:" , tostring( color )                               ) .. "\n" ) end end
+function net.WriteFloat(float)       if NETUTILS.FREEZE then return end  NET.WriteFloat(float)        if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Float:" , float                                           ) .. "\n" ) end end
+function net.WriteDouble(double)     if NETUTILS.FREEZE then return end  NET.WriteDouble(double)      if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Double:", double                                          ) .. "\n" ) end end
+function net.WriteNormal(normal)     if NETUTILS.FREEZE then return end  NET.WriteNormal(normal)      if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Vector(Normal):",tostring( vector )                       ) .. "\n" ) end end
+function net.WriteMatrix(matrix)     if NETUTILS.FREEZE then return end  NET.WriteMatrix(matrix)      if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Matrix:"        ,tostring( matrix )                       ) .. "\n" ) end end
+function net.WriteData(data,length)  if NETUTILS.FREEZE then return end  NET.WriteData(data,length)   if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Binary Data:","<" .. length .. ">"                        ) .. "\n" ) end end
+
+function net.Incoming( len )
+	local i = net.ReadHeader()
+	local strName = util.NetworkIDToString( i )
+	if ( !strName ) then return end
+	local func = net.Receivers[ strName:lower() ]
+	if ( !func ) then return end
+    len = len - 16
+    
+    if NETUTILS.HOOK[ strName ]
+    then
+
+        if NETUTILS.HOOK[ strName ] and NETUTILS.HOOK[ strName ][3] or false then return end
+        
+        NETUTILS.SNIFFIN = NETUTILS.HOOK[ strName ] and NETUTILS.HOOK[ strName ][2] or false
+
+        if NETUTILS.SNIFFIN
+        then
+            NETUTILS.LOGOUTPUT = NETUTILS.HOOK[ strName ][1].netinlog
+            NETUTILS.LOGOUTPUT:AppendText( "\n" ..  strName .. ":In\n" )
+        end
+
+    end
+    
+    func( len )
+
+end
+
+function net.Start(messageName, unreliable)
+    local msgName = messageName:lower()
+
+    net.Receivers[ msgName ] = net.Receivers[ msgName ] or msgName
+    if NETUTILS.HOOK[ messageName ]
+    then
+        
+        NETUTILS.FREEZE = NETUTILS.HOOK[ messageName ] and NETUTILS.HOOK[ messageName ][3] or false
+        NETUTILS.SNIFFOUT   = NETUTILS.HOOK[ messageName ] and NETUTILS.HOOK[ messageName ][2] or false
+        
+        if NETUTILS.SNIFFOUT
+        then
+            NETUTILS.LOGOUTPUT2 = NETUTILS.HOOK[ messageName ][1].netoutlog
+            NETUTILS.LOGOUTPUT2:AppendText( "\n" ..  messageName .. ":Out\n" )
+        end
+        if NETUTILS.FREEZE then return end
+
+    end
+    
+    NET.Start(messageName, unreliable)
+end
+
 local LUA_SESSIONS = {}
 
 local LUA_EDITOR_PRINT = function( ... )
@@ -683,6 +786,167 @@ function PANEL:GenerateOptions()
         refreshBt:SetText("Refresh")
         refreshBt.DoClick = generate
     end) 
+
+    LuaOptions:AddOption("net",function()
+        local frame = vgui.Create("LUAEDITOR_Frame")
+        frame:SetSize(ScrW() * 0.6 , ScrH() * 0.7)
+        frame:Center()
+        frame:SetTitle("")
+        frame:MakePopup()
+        frame:SetSizable(true)
+
+        local netlist = vgui.Create("LUAEDITOR_ScrollPanel",frame)
+        netlist:Dock(FILL)
+        netlist:AddSearchBar()
+
+        for netname,fn in SortedPairs( net.Receivers,true )
+        do
+            local panel = vgui.Create("DPanel",netlist)
+            panel:SetDrawBackground(false)
+            panel:Dock(TOP)
+            panel:DockMargin(0,30,0,0)
+
+            panel.filterdata = netname
+
+            local label = vgui.Create("DTextEntry",panel)
+            label:Dock(TOP)
+            label:DockMargin(5,0,5,0)
+            label:SetText(netname)
+
+            local open = vgui.Create("DButton",panel)
+            open:Dock(TOP)
+            open:SetText("open source")
+            open:DockMargin(5,0,5,0)
+
+            open.DoClick = function()
+                xpcall(function()
+                    OpenFunctionSource(fn)
+                end,function()
+                     Derma_Query("Can't open the file","Lua editor","Ok")
+                     open:SetDisabled(true) 
+                end)
+            end
+
+            local utils = vgui.Create("DButton",panel)
+            utils:Dock(TOP)
+            utils:SetText("utils")
+            utils:DockMargin(5,0,5,10)
+            utils.DoClick = function()
+                if NETUTILS.HOOK[ netname ] and NETUTILS.HOOK[ netname ][2]
+                then
+                    NETUTILS.HOOK[ netname ][1]:Show()
+                    NETUTILS.HOOK[ netname ][1]:MakePopup()
+                else
+                    local frame = vgui.Create("LUAEDITOR_Frame")
+
+                    frame:SetTitle("")
+                    frame:Center()
+                    frame:MakePopup()
+                    frame:SetSizable(true)
+
+                    frame:SetSize(ScrW() * 0.4,ScrH() *0.6)
+                    frame.btnClose.DoClick = function() frame:Hide() end
+ 
+                    local enabled = vgui.Create("DCheckBoxLabel",frame)
+                    enabled:SetPos(10,10)
+                    enabled:SetText("Sniff " .. netname )
+                    enabled:SetValue(true)
+
+                    enabled.OnChange = function(_,val) 
+                        NETUTILS.HOOK[ netname ][2] = val
+                    end
+
+                    local freeze = vgui.Create("DCheckBoxLabel",frame)
+                    freeze:SetPos(10,30)
+                    freeze:SetText("Freeze sending/receiving " .. netname )
+
+                    freeze.OnChange = function(_,val) 
+                        NETUTILS.HOOK[ netname ][3] = val
+                    end
+
+                    frame.netinlog = vgui.Create("RichText",frame)
+                    frame.netinlog:Dock(LEFT)  
+                    frame.netinlog:DockMargin(0,20,0,0)
+                    
+                    frame.netoutlog = vgui.Create("RichText",frame)
+                    frame.netoutlog:Dock(RIGHT)
+                    frame.netoutlog:DockMargin(0,20,0,0)
+
+                    local _PerformLayout = frame.PerformLayout
+                    function frame:PerformLayout(w,h)
+                        _PerformLayout(self,w,h)
+                        frame.netinlog:SetWide( w/2 - 10 )
+                        frame.netoutlog:SetWide( w/2 - 10 )
+                    end
+
+                    NETUTILS.HOOK[ netname ]    = {} 
+                    NETUTILS.HOOK[ netname ][1] = frame
+                    NETUTILS.HOOK[ netname ][2] = true
+                    NETUTILS.HOOK[ netname ][3] = false
+                end
+            end
+
+            panel:SetTall(70)
+
+        end
+    end)
+
+    LuaOptions:AddOption("hook",function()
+        local frame = vgui.Create("LUAEDITOR_Frame")
+
+        frame:SetSize(ScrW() * 0.5 , ScrH() * 0.7)
+        frame:Center()
+        frame:SetTitle("")
+        frame:MakePopup()
+        frame:SetSizable(true)
+
+        local scroll = vgui.Create("LUAEDITOR_ScrollPanel",frame)
+        scroll:Dock(FILL)
+        scroll:AddSearchBar()
+
+        local hooks = hook.GetTable()
+        for eventname,tbl in pairs(hooks)
+        do
+            for id,fn in pairs(tbl)
+            do
+                local fninfo = debug.getinfo(fn) 
+
+                local panel = vgui.Create("DPanel",scroll)
+                panel:SetDrawBackground(false)
+                panel:Dock(TOP)
+                panel:DockMargin(0,30,0,0)
+                
+                panel.filterdata = eventname .. " " .. tostring( id )
+                
+                local label = vgui.Create("DTextEntry",panel)
+                label:Dock(TOP)
+                label:DockMargin(5,0,5,0)
+                label:SetText( eventname .. " " .. tostring( id ) )
+
+                local open = vgui.Create("DButton",panel)
+                open:Dock(TOP)
+                open:SetText("open source")
+                open:DockMargin(5,0,5,0)
+    
+                open.DoClick = function()
+                    xpcall(function()
+                        OpenFunctionSource(fn)
+                    end,function()
+                         Derma_Query("Can't open the file","Lua editor","Ok")
+                         open:SetDisabled(true) 
+                    end)
+                end
+
+                local terminate = vgui.Create("DButton",panel)
+                terminate:Dock(TOP)
+                terminate:DockMargin(5,0,5,20)
+                terminate:SetText("Terminate hook")
+                terminate.DoClick = function() hook.Remove( eventname,id ) label:Remove() terminate:Remove() end
+
+                panel:SetTall(70)
+            end
+        end
+    end)
 
     -- I really don't know why i added this but why not
     local Rextester = vgui.Create("LUAEDITOR_Button",optionsHolder)
