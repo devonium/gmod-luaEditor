@@ -181,11 +181,12 @@ local function Compile( code,sessionID )
         LUA_SESSIONS[sessionID]["hooks"][eventname] = { eventname,id,fn } 
         hook.Add(eventname,id,fn) 
     end    
-    NEW_ENV["hook"]["Remove"] = function(eventname,id,fn) 
+    NEW_ENV["hook"]["Remove"] = function(eventname,id) 
         --id = id .. "_lua_editor"
         LUA_SESSIONS[sessionID] = LUA_SESSIONS[sessionID] or {} 
         LUA_SESSIONS[sessionID]["hooks"] = LUA_SESSIONS[sessionID]["hooks"] or {} 
         LUA_SESSIONS[sessionID]["hooks"][eventname] = nil
+	hook.Remove(eventname,id)
     end
     NEW_ENV["timer"]["Create"] = function(id,delay,rep,fn) 
         --id = id .. "_lua_editor"
