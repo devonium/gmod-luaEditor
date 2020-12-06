@@ -15,40 +15,18 @@ local ipairs        = ipairs
 local CompileString = CompileString
 
 
--- Fixed by Deyvan
---  For some reason starfall give an error with table copy
---  not cool yet...
-local function tableCopy( t, lookup_table )
-	if ( t == nil ) then return nil end
-    local copy = {}
-    if lookup_table then setmetatable(copy, debug.getmetatable(t)) end
-    for i, v in pairs( t ) do
-		if ( !istable( v ) ) then
-			copy[ i ] = v
-		else
-			lookup_table = lookup_table or {}
-			lookup_table[ t ] = copy
-			if ( lookup_table[ v ] ) then
-				copy[ i ] = lookup_table[ v ] -- we already copied this table. reuse the copy.
-			else
-				copy[ i ] = tableCopy( v, lookup_table ) -- not yet copied. copy it.
-			end
-		end
-	end
-	return copy
-end
 
 /////////////////
 --  net utils  --
 /////////////////
 
-NET = NET or tableCopy( net )
+NET = NET or table.Copy( net )
 
 local function NiceTab(tablen,...)
     local args  = {...}
     local ret = ""
     tablen = tablen or 23
-    
+
     for i=1,#args
     do
         local len  = utf8.len(utf8.force( tostring( args[i] ) ))
@@ -78,19 +56,19 @@ function net.ReadNormal()       local data = NET.ReadNormal()       if NETUTILS.
 function net.ReadMatrix()       local data = NET.ReadMatrix()       if NETUTILS.SNIFFIN then NETUTILS.LOGOUTPUT:AppendText( NiceTab(23, "Matrix:"        ,tostring( data )                         ) .. "\n" ) end return data end
 function net.ReadData(length)   local data = NET.ReadData(length)   if NETUTILS.SNIFFIN then NETUTILS.LOGOUTPUT:AppendText( NiceTab(23, "Binary Data:","<" .. length .. ">"                        ) .. "\n" ) end return data end
 
-function net.WriteInt(num,bitCount)  if NETUTILS.FREEZE then return end  NET.WriteInt(num,bitCount)   if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "int"  .. bitCount .. ":","0x"..  bit.tohex(num), num      ) .. "\n" ) end end
-function net.WriteUInt(num,bitCount) if NETUTILS.FREEZE then return end  NET.WriteUInt(num,bitCount)  if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Uint" .. bitCount .. ":","0x" .. bit.tohex(num), num      ) .. "\n" ) end end
-function net.WriteString(string)     if NETUTILS.FREEZE then return end  NET.WriteString(string)      if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "String:","\"".. string .. "\""                            ) .. "\n" ) end end
-function net.WriteEntity(entity)     if NETUTILS.FREEZE then return end  NET.WriteEntity(entity)      if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Entity:", tostring( entity )                              ) .. "\n" ) end end
-function net.WriteVector(vector)     if NETUTILS.FREEZE then return end  NET.WriteVector(vector)      if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Vector:", tostring( vector )                              ) .. "\n" ) end end
-function net.WriteAngle(angle)       if NETUTILS.FREEZE then return end  NET.WriteAngle(angle)        if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Angle:" , angle[1] .. " " .. angle[2] .. " " .. angle[3]  ) .. "\n" ) end end
-function net.WriteTable(table)       if NETUTILS.FREEZE then return end  NET.WriteTable(table)        if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Table:" , table.ToString(table, "",false)                 ) .. "\n" ) end end
-function net.WriteColor(color)       if NETUTILS.FREEZE then return end  NET.WriteColor(color)        if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Color:" , tostring( color )                               ) .. "\n" ) end end
-function net.WriteFloat(float)       if NETUTILS.FREEZE then return end  NET.WriteFloat(float)        if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Float:" , float                                           ) .. "\n" ) end end
-function net.WriteDouble(double)     if NETUTILS.FREEZE then return end  NET.WriteDouble(double)      if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Double:", double                                          ) .. "\n" ) end end
-function net.WriteNormal(normal)     if NETUTILS.FREEZE then return end  NET.WriteNormal(normal)      if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Vector(Normal):",tostring( vector )                       ) .. "\n" ) end end
-function net.WriteMatrix(matrix)     if NETUTILS.FREEZE then return end  NET.WriteMatrix(matrix)      if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Matrix:"        ,tostring( matrix )                       ) .. "\n" ) end end
-function net.WriteData(data,length)  if NETUTILS.FREEZE then return end  NET.WriteData(data,length)   if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Binary Data:","<" .. length .. ">"                        ) .. "\n" ) end end
+function net.WriteInt(num,bitCount)  if !NETUTILS.FREEZE then NET.WriteInt(num,bitCount)  end if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "int"  .. bitCount .. ":","0x"..  bit.tohex(num), num      ) .. "\n" ) end end
+function net.WriteUInt(num,bitCount) if !NETUTILS.FREEZE then NET.WriteUInt(num,bitCount) end if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Uint" .. bitCount .. ":","0x" .. bit.tohex(num), num      ) .. "\n" ) end end
+function net.WriteString(string)     if !NETUTILS.FREEZE then NET.WriteString(string)     end if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "String:","\"".. string .. "\""                            ) .. "\n" ) end end
+function net.WriteEntity(entity)     if !NETUTILS.FREEZE then NET.WriteEntity(entity)     end if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Entity:", tostring( entity )                              ) .. "\n" ) end end
+function net.WriteVector(vector)     if !NETUTILS.FREEZE then NET.WriteVector(vector)     end if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Vector:", tostring( vector )                              ) .. "\n" ) end end
+function net.WriteAngle(angle)       if !NETUTILS.FREEZE then NET.WriteAngle(angle)       end if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Angle:" , angle[1] .. " " .. angle[2] .. " " .. angle[3]  ) .. "\n" ) end end
+function net.WriteTable(table)       if !NETUTILS.FREEZE then NET.WriteTable(table)       end if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Table:" , table.ToString(table, "",false)                 ) .. "\n" ) end end
+function net.WriteColor(color)       if !NETUTILS.FREEZE then NET.WriteColor(color)       end if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Color:" , tostring( color )                               ) .. "\n" ) end end
+function net.WriteFloat(float)       if !NETUTILS.FREEZE then NET.WriteFloat(float)       end if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Float:" , float                                           ) .. "\n" ) end end
+function net.WriteDouble(double)     if !NETUTILS.FREEZE then NET.WriteDouble(double)     end if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Double:", double                                          ) .. "\n" ) end end
+function net.WriteNormal(normal)     if !NETUTILS.FREEZE then NET.WriteNormal(normal)     end if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Vector(Normal):",tostring( vector )                       ) .. "\n" ) end end
+function net.WriteMatrix(matrix)     if !NETUTILS.FREEZE then NET.WriteMatrix(matrix)     end if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Matrix:"        ,tostring( matrix )                       ) .. "\n" ) end end
+function net.WriteData(data,length)  if !NETUTILS.FREEZE then NET.WriteData(data,length)  end if NETUTILS.SNIFFOUT then  NETUTILS.LOGOUTPUT2:AppendText(NiceTab(23, "Binary Data:","<" .. length .. ">"                        ) .. "\n" ) end end
 
 function net.Incoming( len )
 	local i = net.ReadHeader()
@@ -99,12 +77,12 @@ function net.Incoming( len )
 	local func = net.Receivers[ strName:lower() ]
 	if ( !func ) then return end
     len = len - 16
-    
+
     if NETUTILS.HOOK[ strName ]
     then
 
         if NETUTILS.HOOK[ strName ] and NETUTILS.HOOK[ strName ][3] or false then return end
-        
+
         NETUTILS.SNIFFIN = NETUTILS.HOOK[ strName ] and NETUTILS.HOOK[ strName ][2] or false
 
         if NETUTILS.SNIFFIN
@@ -114,9 +92,8 @@ function net.Incoming( len )
         end
 
     end
-    
-    func( len )
 
+    func( len )
 end
 
 function net.Start(messageName, unreliable)
@@ -125,10 +102,10 @@ function net.Start(messageName, unreliable)
     net.Receivers[ msgName ] = net.Receivers[ msgName ] or msgName
     if NETUTILS.HOOK[ messageName ]
     then
-        
+
         NETUTILS.FREEZE = NETUTILS.HOOK[ messageName ] and NETUTILS.HOOK[ messageName ][3] or false
         NETUTILS.SNIFFOUT   = NETUTILS.HOOK[ messageName ] and NETUTILS.HOOK[ messageName ][2] or false
-        
+
         if NETUTILS.SNIFFOUT
         then
             NETUTILS.LOGOUTPUT2 = NETUTILS.HOOK[ messageName ][1].netoutlog
@@ -137,7 +114,7 @@ function net.Start(messageName, unreliable)
         if NETUTILS.FREEZE then return end
 
     end
-    
+
     NET.Start(messageName, unreliable)
 end
 
@@ -149,73 +126,54 @@ local LUA_EDITOR_PRINT = function( ... )
     if !LUA_EDITOR_FRAME then return end
     for k,v in pairs( { ... } )
     do
+        if istable(v) then v = table.ToString(v, tostring(v), true) end
         LUA_EDITOR_FRAME.Console:InsertColorChange(255,255,255,255)
         LUA_EDITOR_FRAME.Console:AppendText( tostring( v ) )
         LUA_EDITOR_FRAME.Console:AppendText( "\n" )
     end
 end
 
-/////////////////////////////////////////////////////////
--- here you can put the functions you want to override --
-/////////////////////////////////////////////////////////
-local _FN_ENV = {
-    print = LUA_EDITOR_PRINT,
-    net   = {}
-}
-
 local function Compile( code,sessionID )
+    code = "local hook,timer,print,PrintTable = ..." .. code
     local var = CompileString( code,"",false)
     if isstring( var ) then return var end
-    --              Maybe better localize it?
-    local NEW_ENV = tableCopy( debug.getfenv( var ) )
 
-    for k,v in pairs( _FN_ENV )
-    do
-        NEW_ENV[k] = v 
+    local _hook = table.Copy(hook)
+    _hook.GetTable = hook.GetTable
+
+    _hook.Add = function(eventname,id,fn)
+        LUA_SESSIONS[sessionID] = LUA_SESSIONS[sessionID] or {}
+        LUA_SESSIONS[sessionID]["hooks"] = LUA_SESSIONS[sessionID]["hooks"] or {}
+        LUA_SESSIONS[sessionID]["hooks"][eventname] = { eventname,id,fn }
+        hook.Add(eventname,id,fn)
     end
-
-    NEW_ENV["hook"]["Add"] = function(eventname,id,fn) 
-        --id = id .. "_lua_editor"
-        LUA_SESSIONS[sessionID] = LUA_SESSIONS[sessionID] or {} 
-        LUA_SESSIONS[sessionID]["hooks"] = LUA_SESSIONS[sessionID]["hooks"] or {} 
-        LUA_SESSIONS[sessionID]["hooks"][eventname] = { eventname,id,fn } 
-        hook.Add(eventname,id,fn) 
-    end    
-    NEW_ENV["hook"]["Remove"] = function(eventname,id) 
-        --id = id .. "_lua_editor"
-        LUA_SESSIONS[sessionID] = LUA_SESSIONS[sessionID] or {} 
-        LUA_SESSIONS[sessionID]["hooks"] = LUA_SESSIONS[sessionID]["hooks"] or {} 
+    _hook.Remove = function(eventname,id)
+        LUA_SESSIONS[sessionID] = LUA_SESSIONS[sessionID] or {}
+        LUA_SESSIONS[sessionID]["hooks"] = LUA_SESSIONS[sessionID]["hooks"] or {}
         LUA_SESSIONS[sessionID]["hooks"][eventname] = nil
-	hook.Remove(eventname,id)
+    hook.Remove(eventname,id)
     end
-    NEW_ENV["timer"]["Create"] = function(id,delay,rep,fn) 
-        --id = id .. "_lua_editor"
-        LUA_SESSIONS[sessionID] = LUA_SESSIONS[sessionID] or {} 
-        LUA_SESSIONS[sessionID]["timers"] = LUA_SESSIONS[sessionID]["timers"] or {} 
-        LUA_SESSIONS[sessionID]["timers"][id] = { id,delay,rep,fn } 
-        timer.Create(id,delay,rep,fn) 
-    end    
 
-    local delTimer = function(...) 
+    local _timer = table.Copy(timer)
+    _timer.Create = function(id,delay,rep,fn)
+        LUA_SESSIONS[sessionID] = LUA_SESSIONS[sessionID] or {}
+        LUA_SESSIONS[sessionID]["timers"] = LUA_SESSIONS[sessionID]["timers"] or {}
+        LUA_SESSIONS[sessionID]["timers"][id] = { id,delay,rep,fn }
+        timer.Create(id,delay,rep,fn)
+    end
+
+    local delTimer = function(...)
         local id = ...
-        --id = id .. "_lua_editor"
-        LUA_SESSIONS[sessionID] = LUA_SESSIONS[sessionID] or {} 
-        LUA_SESSIONS[sessionID]["timers"] = LUA_SESSIONS[sessionID]["timers"] or {} 
+        LUA_SESSIONS[sessionID] = LUA_SESSIONS[sessionID] or {}
+        LUA_SESSIONS[sessionID]["timers"] = LUA_SESSIONS[sessionID]["timers"] or {}
         LUA_SESSIONS[sessionID]["timers"][id] = nil
+        timer.Remove(...)
     end
 
-    NEW_ENV["timer"]["Remove"] = function(...) 
-        delTimer( ... )
-        timer.Remove(...)
-    end    
-    NEW_ENV["timer"]["Destroy"] = function(...) 
-        delTimer( ... )
-        timer.Destroy(...)
-    end    
-    
-    debug.setfenv( var , NEW_ENV )
+    _timer.Remove = delTimer
+    _timer.Destroy = delTimer
 
-    return var
+    return function() var(_hook, _timer, LUA_EDITOR_PRINT, LUA_EDITOR_PRINT) end
 end
 
 ////////////////
@@ -227,16 +185,15 @@ local LuaSessionUID = 1
 local function OpenFunctionSource(fn)
     local fninfo = debug.getinfo( fn )
 
-    if fninfo.short_src == nil then return end
+    if fninfo.short_src == nil then return error("") end
+    local source = file.Read(fninfo.short_src ,"GAME")
 
-    local src_path    = string.sub( string.match(fninfo.short_src,"lua/.*lua" ) , 5 )
-    local source = file.Read( src_path ,"LUA")
-    if source == nil then error("") end
-    
+    if source == nil then return error("") end
+
     if LUA_EDITOR_FRAME
     then
         LUA_EDITOR_FRAME:Show()
-        LUA_EDITOR_FRAME:AddEditorTab(nil,string.GetFileFromFilename( src_path ))
+        LUA_EDITOR_FRAME:AddEditorTab(nil,fninfo.short_src)
         LUA_EDITOR_FRAME:GetActiveEditor():SetCode( source )
         LUA_EDITOR_FRAME:GetActiveEditor():GotoLine( fninfo.linedefined )
     else
@@ -244,29 +201,9 @@ local function OpenFunctionSource(fn)
         frame:GetActiveEditor():SetCode( source )
         frame:GetActiveEditor():GotoLine( fninfo.linedefined )
         frame:GetActiveEditorTab().CloseButton:Remove()
-        frame:GetActiveEditorTab():SetText( string.GetFileFromFilename( src_path ) )
+        frame:GetActiveEditorTab():SetText(fninfo.short_src)
     end
 end
-
-local replace =
-{
-    ["\n"] = "\\n" ,
-    ["\0"] = "\\0" ,
-    ["\b"] = "\\b" ,
-    ["\t"] = "\\t" ,
-    ["\v"] = "\\v" ,
-    ["\f"] = "\\f" ,
-    ["\r"] = "\\r" ,
-    ["\""] = "\\\"",
-    ["\'"] = "\\\'",
-    ["\\"] = "\\\\",
-}
-
--- don't let special characters break the js queue --
-local function SafeJS( js )
-    return js:gsub(".",replace)
-end
-
 
 local PANEL = {}
 
@@ -298,12 +235,12 @@ function PANEL:Paint(w,h)
     local H = w * 0.05
 
     local mult = math.max( surface.GetAlphaMultiplier() , 0.7 )
-    
+
     surface.SetAlphaMultiplier( 1 )
     surface.SetDrawColor(12 * mult, 125 * mult, 157 * mult)
-    
+
     draw.NoTexture()
-    
+
     surface.DrawTexturedRectRotated(w * 0.5 - W * 0.5 , h * 0.5 - H * 0.5,W,H,self.time)
     surface.DrawTexturedRectRotated(w * 0.5 - W * 0.5 , h * 0.5 - H * 0.5,W,H,self.time + math.sin( CurTime() ) * 40 )
 
@@ -325,7 +262,7 @@ function PANEL:Init()
         else
             self.LastSize = {self:GetSize()}
             self.LastPos  = {self:GetPos()}
-            
+
             self:SetSize( ScrW() , ScrH() )
             self:Center()
         end
@@ -346,9 +283,9 @@ function PANEL:Init()
     self.CloseButton:Dock(RIGHT)
     self.CloseButton:SetText("X")
     self.CloseButton:SizeToContents()
-    self.CloseButton.DoClick = function() 
+    self.CloseButton.DoClick = function()
         if #self:GetPropertySheet():GetItems() == 1 then LUA_EDITOR_FRAME:AddEditorTab() end
-        self:GetPropertySheet():CloseTab(self,true) 
+        self:GetPropertySheet():CloseTab(self,true)
     end
 
     self.AnimFrac = 0
@@ -362,7 +299,7 @@ function PANEL:Paint(w,h)
     self.AnimFrac = Lerp(0.1,self.AnimFrac, self:IsActive() and 1 or 0 )
 
     surface.SetDrawColor(70,70,70,self.AnimFrac * 255)
-    surface.DrawRect(0,0,w,h)  
+    surface.DrawRect(0,0,w,h)
 end
 
 vgui.Register("LUAEDITOR_Tab", PANEL , "DTab")
@@ -424,15 +361,15 @@ function PANEL:Init()
     self.Canvas:SetDraggable(false)
     self.Canvas:SetTitle("")
     self.Canvas:ShowCloseButton(false)
-    
+
     self.Canvas:SetTall( 0 )
-    
+
     self.Canvas.OnFocusChanged = function(self,gained) if !gained and !vgui.FocusedHasParent( self ) then self:Hide() end end
     self.Canvas.Paint = function(_,w,h)
         surface.SetDrawColor(40,40,40)
         surface.DrawRect(0,0,w,h)
     end
-    
+
     self.Offset = 0
 end
 
@@ -444,13 +381,13 @@ function PANEL:DoClick()
     self.Canvas:SetVisible( !self.Canvas:IsVisible() )
     self.Canvas:SetPos( input.GetCursorPos() )
     self.Canvas:MakePopup()
-    self.Canvas:RequestFocus()  
+    self.Canvas:RequestFocus()
 end
 
 function PANEL:AddOption( name , callback )
     local Option = vgui.Create("LUAEDITOR_Button",self.Canvas)
     Option:SetPos( 0 , 5 + 25 * self.Offset )
-    
+
     Option:SetText(name)
     Option:SizeToContentsX( 15 )
 
@@ -522,24 +459,24 @@ function PANEL:Init()
     self:SetSizable( true )
     self:MakePopup()
     self:SetTitle("")
-    
+
     self:SetSize( w,h )
     self:Center()
 
-    
+
     self.btnClose.DoClick = function() self:Hide() end
 
     local toppanel = vgui.Create("DPanel")
     toppanel:SetDrawBackground(false)
 
     self.EditorTabsSheet = vgui.Create("LUAEDITOR_PropertySheet",toppanel )
-    
+
     self.EditorTabsSheet:Dock(FILL)
     self.EditorTabsSheet:DockMargin(0,0,0,-15)
 
     local bottompanel = vgui.Create("DPanel")
     bottompanel:SetDrawBackground(false)
-    
+
     self.Console = vgui.Create("RichText",bottompanel)
     self.Console:Dock(FILL)
     self.Console:DockMargin(6,0,8,3)
@@ -548,21 +485,21 @@ function PANEL:Init()
         surface.DrawRect(0,0,w,2)
     end
     local divider = vgui.Create("DVerticalDivider",self)
-    
+
     divider:Dock(FILL)
     divider:DockMargin(-13,1,-13,0)
-    
+
     divider:SetTop( toppanel )
     divider:SetBottom( bottompanel )
 
     divider:SetDividerHeight( 4 )
     divider:SetTopHeight( h - 200 )
 
-    
+
     self:AddEditorTab()
 end
 
-    
+
 function PANEL:GenerateOptions()
 
     local optionsHolder = vgui.Create("DPanel",self)
@@ -573,7 +510,7 @@ function PANEL:GenerateOptions()
     local FileOptions = vgui.Create("LUAEDITOR_OptionsMenu",optionsHolder)
     FileOptions:Dock(LEFT)
     FileOptions:SetText("File")
-    FileOptions:AddOption("New File",function() 
+    FileOptions:AddOption("New File",function()
         self:AddEditorTab()
         self:MakePopup()
     end)
@@ -588,7 +525,7 @@ function PANEL:GenerateOptions()
         local te = vgui.Create("DTextEntry",frame)
         te:Dock(TOP)
         te:RequestFocus()
-        
+
         if !string.find( self:GetActiveEditorTab():GetText() , "Lua session" )
         then
             te:SetText( string.GetFileFromFilename( string.Replace( self:GetActiveEditorTab():GetText() ," " , "") ) )
@@ -602,12 +539,12 @@ function PANEL:GenerateOptions()
         button:Dock(BOTTOM)
         button:SetText("Save")
 
-        button.DoClick = function()  
+        button.DoClick = function()
             local path = te:GetText() .. "  "
             local panel = self:GetActiveEditorTab():GetPanel()
-            
-            if string.find(path,"/") 
-            then 
+
+            if string.find(path,"/")
+            then
                 file.CreateDir( string.GetPathFromFilename( path ) )
                 local path = string.GetPathFromFilename( path ) .. "/" .. string.GetFileFromFilename(path)
                 file.Write( path ,self:GetActiveEditor():GetCode() )
@@ -621,8 +558,8 @@ function PANEL:GenerateOptions()
             frame:Close()
         end
     end)
-    FileOptions:AddOption("Open File",function() 
-        
+    FileOptions:AddOption("Open File",function()
+
         local frame = vgui.Create("LUAEDITOR_Frame")
         frame:SetSize(ScrW() * 0.5 , ScrH() * 0.5)
         frame:Center()
@@ -633,8 +570,8 @@ function PANEL:GenerateOptions()
         browser:Dock( FILL )
 
         browser:SetPath( "GAME" )
-        browser:SetBaseFolder( "data" ) 
-        browser:SetOpen( true ) 
+        browser:SetBaseFolder( "data" )
+        browser:SetOpen( true )
         browser:SetSearch( "*" )
         browser:SetFileTypes("*.txt")
         browser.OnSelect = function( _,path, pnl )
@@ -645,7 +582,7 @@ function PANEL:GenerateOptions()
         end
     end)
 
-    FileOptions:AddOption("Load code from url",function() 
+    FileOptions:AddOption("Load code from url",function()
         local frame = vgui.Create("LUAEDITOR_Frame")
         frame:SetSize(ScrW() * 0.2 , ScrH() * 0.1)
         frame:Center()
@@ -660,7 +597,7 @@ function PANEL:GenerateOptions()
         bt:Dock(BOTTOM)
         bt:SetText("Load")
 
-        bt.DoClick = function()  
+        bt.DoClick = function()
             http.Fetch( te:GetText() , function( body,_,_,_ )
                 self:AddEditorTab( body )
                 self:MakePopup()
@@ -672,8 +609,8 @@ function PANEL:GenerateOptions()
 
     local LuaOptions = vgui.Create("LUAEDITOR_OptionsMenu",optionsHolder)
     LuaOptions:Dock(LEFT)
-    LuaOptions:SetText("LUA")    
-    
+    LuaOptions:SetText("LUA")
+
     LuaOptions:AddOption("Deyvan's lua syntax tool",function()
         if !CHROMIUM_BRANCH then return Derma_Query("This only works on chromium branch!","Lua editor","Ok") end
 
@@ -692,10 +629,10 @@ function PANEL:GenerateOptions()
 
         local loadingpanel = vgui.Create("LUAEDITOR_LoadingPanel",frame)
         loadingpanel:Dock(FILL)
-        function HTML:OnDocumentReady() 
+        function HTML:OnDocumentReady()
             loadingpanel:AlphaTo(0,0.2,0,function() loadingpanel:Remove()  HTML:RequestFocus() end)
         end
-    end)    
+    end)
 
     LuaOptions:AddOption("Gmod wiki",function()
         if !CHROMIUM_BRANCH then return Derma_Query("This only works on chromium branch!","Lua editor","Ok") end
@@ -712,7 +649,7 @@ function PANEL:GenerateOptions()
         HTML:OpenURL("https://wiki.facepunch.com/gmod/")
         local loadingpanel = vgui.Create("LUAEDITOR_LoadingPanel",frame)
         loadingpanel:Dock(FILL)
-        function HTML:OnDocumentReady() 
+        function HTML:OnDocumentReady()
             loadingpanel:AlphaTo(0,0.2,0,function() loadingpanel:Remove()  HTML:RequestFocus() end)
         end
     end)
@@ -748,14 +685,14 @@ function PANEL:GenerateOptions()
                     lbltitle:DockMargin(6,0,0,0)
 
                     lbltitle:SetText( string.format("hook.Add(%q,%q,function %p)",unpack(data)) )
-                    lbltitle:SetTextColor( color_black ) 
+                    lbltitle:SetTextColor( color_black )
 
                     local terminate = vgui.Create("DButton",panel)
                     terminate:Dock(TOP)
                     terminate:DockMargin(5,0,5,0)
                     terminate:SetText("Terminate hook")
                     terminate.DoClick = function() hook.Remove( data[1] , data[2] ) Session.hooks[eventname] = nil generate() end
-                end   
+                end
 
                 for id,data in pairs( Session.timers or {} )
                 do
@@ -767,15 +704,15 @@ function PANEL:GenerateOptions()
                     lbltitle:Dock(TOP)
                     lbltitle:DockMargin(6,0,0,0)
                     lbltitle:SetText( string.format("timer.Create(%q,%s,%s,function %p)",unpack(data)) )
-                    lbltitle:SetTextColor( color_black ) 
+                    lbltitle:SetTextColor( color_black )
 
                     local terminate = vgui.Create("DButton",panel)
                     terminate:Dock(TOP)
                     terminate:DockMargin(5,0,5,0)
                     terminate:SetText("Terminate timer")
                     terminate.DoClick = function()  timer.Remove( data[1] ) Session.timers[id] = nil generate() end
-                end 
-                
+                end
+
                 if #cat:GetChildren() == 0 then cat:SetExpanded(false) end
             end
         end
@@ -786,7 +723,7 @@ function PANEL:GenerateOptions()
         refreshBt:DockMargin(-5,-29, frame:GetWide() - 150 ,10)
         refreshBt:SetText("Refresh")
         refreshBt.DoClick = generate
-    end) 
+    end)
 
     LuaOptions:AddOption("net",function()
         local frame = vgui.Create("LUAEDITOR_Frame")
@@ -824,7 +761,7 @@ function PANEL:GenerateOptions()
                     OpenFunctionSource(fn)
                 end,function()
                      Derma_Query("Can't open the file","Lua editor","Ok")
-                     open:SetDisabled(true) 
+                     open:SetDisabled(true)
                 end)
             end
 
@@ -847,13 +784,13 @@ function PANEL:GenerateOptions()
 
                     frame:SetSize(ScrW() * 0.4,ScrH() *0.6)
                     frame.btnClose.DoClick = function() frame:Hide() end
- 
+
                     local enabled = vgui.Create("DCheckBoxLabel",frame)
                     enabled:SetPos(10,10)
                     enabled:SetText("Sniff " .. netname )
                     enabled:SetValue(true)
 
-                    enabled.OnChange = function(_,val) 
+                    enabled.OnChange = function(_,val)
                         NETUTILS.HOOK[ netname ][2] = val
                     end
 
@@ -861,14 +798,14 @@ function PANEL:GenerateOptions()
                     freeze:SetPos(10,30)
                     freeze:SetText("Freeze sending/receiving " .. netname )
 
-                    freeze.OnChange = function(_,val) 
+                    freeze.OnChange = function(_,val)
                         NETUTILS.HOOK[ netname ][3] = val
                     end
 
                     frame.netinlog = vgui.Create("RichText",frame)
-                    frame.netinlog:Dock(LEFT)  
+                    frame.netinlog:Dock(LEFT)
                     frame.netinlog:DockMargin(0,20,0,0)
-                    
+
                     frame.netoutlog = vgui.Create("RichText",frame)
                     frame.netoutlog:Dock(RIGHT)
                     frame.netoutlog:DockMargin(0,20,0,0)
@@ -880,7 +817,7 @@ function PANEL:GenerateOptions()
                         frame.netoutlog:SetWide( w/2 - 10 )
                     end
 
-                    NETUTILS.HOOK[ netname ]    = {} 
+                    NETUTILS.HOOK[ netname ]    = {}
                     NETUTILS.HOOK[ netname ][1] = frame
                     NETUTILS.HOOK[ netname ][2] = true
                     NETUTILS.HOOK[ netname ][3] = false
@@ -910,15 +847,15 @@ function PANEL:GenerateOptions()
         do
             for id,fn in pairs(tbl)
             do
-                local fninfo = debug.getinfo(fn) 
+                local fninfo = debug.getinfo(fn)
 
                 local panel = vgui.Create("DPanel",scroll)
                 panel:SetDrawBackground(false)
                 panel:Dock(TOP)
                 panel:DockMargin(0,30,0,0)
-                
+
                 panel.filterdata = eventname .. " " .. tostring( id )
-                
+
                 local label = vgui.Create("DTextEntry",panel)
                 label:Dock(TOP)
                 label:DockMargin(5,0,5,0)
@@ -928,13 +865,14 @@ function PANEL:GenerateOptions()
                 open:Dock(TOP)
                 open:SetText("open source")
                 open:DockMargin(5,0,5,0)
-    
+
                 open.DoClick = function()
+                    OpenFunctionSource(fn)
                     xpcall(function()
-                        OpenFunctionSource(fn)
-                    end,function()
+                    end,function(err)
+                        
                          Derma_Query("Can't open the file","Lua editor","Ok")
-                         open:SetDisabled(true) 
+                         open:SetDisabled(true)
                     end)
                 end
 
@@ -961,14 +899,14 @@ function PANEL:GenerateOptions()
         frame:SetTitle("")
         frame:MakePopup()
         frame:SetSizable(true)
-        
+
         local HTML = vgui.Create("DHTML",frame)
         HTML:Dock(FILL)
         HTML:DockMargin(-13,-9,0,0)
         HTML:OpenURL("https://rextester.com/")
         local loadingpanel = vgui.Create("LUAEDITOR_LoadingPanel",frame)
         loadingpanel:Dock(FILL)
-        function HTML:OnDocumentReady() 
+        function HTML:OnDocumentReady()
             loadingpanel:AlphaTo(0,0.2,0,function() loadingpanel:Remove()  HTML:RequestFocus() end)
         end
     end
@@ -978,7 +916,7 @@ function PANEL:GenerateOptions()
     ColorPicker:SetText("Color Picker")
     local colormixer = vgui.Create("DColorMixer",ColorPicker.Canvas)
     colormixer:Dock(FILL)
-    colormixer:SetPalette(true)  	
+    colormixer:SetPalette(true)
 
     local copybutton = vgui.Create("LUAEDITOR_Button",ColorPicker.Canvas)
     copybutton:Dock(BOTTOM)
@@ -999,11 +937,15 @@ function PANEL:Compile()
     local panel = self:GetActiveEditorTab():GetPanel()
 
     local var   = Compile( panel.HTML:GetCode() , panel.UID )
-    local line,err
-    if isfunction( var ) 
-    then  
-        xpcall(var, function(err) panel.HTML:SetError( string.match(err,":(%d*):(.+)") ) end )
-    else 
+
+    if isfunction( var )
+    then
+        xpcall(var, function(e)
+            local line,err = string.match(e,":(%d*):(.+)")
+            err = panel.UID .. err
+            panel.HTML:SetError(err, line) 
+        end)
+    else
         panel.HTML:SetError( string.match(var,":(%d*):(.+)") )
     end
 end
@@ -1021,10 +963,10 @@ function PANEL:AddEditorTab(OnReadyCallback,UID)
         panel.HTML:GotoLine( ErrorIndicator.errLine )
     end
 
-    
+
     local HTML = vgui.Create("DHTML",panel)
     panel.HTML = HTML
-    
+
     panel.UID = UID or ( "Lua session #" .. LuaSessionUID )
     if !UID then LuaSessionUID = LuaSessionUID + 1 end
 
@@ -1037,16 +979,16 @@ function PANEL:AddEditorTab(OnReadyCallback,UID)
 
         if Code != "" then
             local var = Compile( Code )
-            if isstring( var ) 
-            then 
+            if isstring( var )
+            then
                 local line,err = string.match(var,":(%d*):(.+)")
                 HTML:SetError( line , err )
                 return
             end
         end
         HTML:ClearError()
-    end)         
-    
+    end)
+
     function HTML:GetCode()
         return self.Code or ""
     end
@@ -1056,15 +998,15 @@ function PANEL:AddEditorTab(OnReadyCallback,UID)
     end
 
     function HTML:SetCode( Code )
-        self:QueueJavascript( CHROMIUM_BRANCH  and "gmodinterface.SetCode('" ..  SafeJS( Code ) .. "');" or "SetContent('" ..  SafeJS( Code ) .. "');" ) 
-    end    
-    
+        self:QueueJavascript( CHROMIUM_BRANCH  and "gmodinterface.SetCode('" ..  string.JavascriptSafe( Code ) .. "');" or "SetContent('" ..  string.JavascriptSafe( Code ) .. "');" )
+    end
+
     function HTML:SetError( line ,err )
         ErrorIndicator:SetMouseInputEnabled(true)
         ErrorIndicator:SetText( err .. " :" .. line )
         ErrorIndicator.errLine = line
     end
-    
+
     function HTML:ClearError()
         ErrorIndicator:SetText("")
         ErrorIndicator.errLine = nil
@@ -1077,7 +1019,7 @@ function PANEL:AddEditorTab(OnReadyCallback,UID)
     loadingpanel:Dock(FILL)
 
     HTML:QueueJavascript("document.documentElement.style.overflow-y = 'hidden';")
-    HTML:AddFunction("gmodinterface","OnThemesLoaded", function()end)    
+    HTML:AddFunction("gmodinterface","OnThemesLoaded", function()end)
     HTML:AddFunction("gmodinterface","OnLanguages", function()end)
 
     HTML:AddFunction("gmodinterface","OnReady", function()
@@ -1086,9 +1028,9 @@ function PANEL:AddEditorTab(OnReadyCallback,UID)
         xpcall(function()
 
                 HTML:SetAlpha(255)
-                loadingpanel:AlphaTo(0,0.2,0,function() 
+                loadingpanel:AlphaTo(0,0.2,0,function()
 
-                    loadingpanel:Remove() 
+                    loadingpanel:Remove()
                     HTML:RequestFocus()
                 end)
 
@@ -1116,7 +1058,7 @@ function PANEL:Think()
         self.KeyToggled = true
 
         self:Compile()
-        
+
         local panel = self:GetActiveEditorTab():GetPanel()
         if panel.SaveTo then file.Write(panel.SaveTo, panel.HTML:GetCode() ) end
     else
